@@ -20,6 +20,7 @@
         <v-list-item prepend-icon="mdi-school" title="Students" to="/admin/students" />
         <v-list-item prepend-icon="mdi-teach" title="Instructors" to="/admin/instructors" />
         <v-list-item prepend-icon="mdi-clipboard-list" title="Rubrics" to="/admin/rubrics" />
+        <v-list-item prepend-icon="mdi-email-fast" title="Invite Students" to="/admin/invite/students" />
       </v-list>
 
       <template #append>

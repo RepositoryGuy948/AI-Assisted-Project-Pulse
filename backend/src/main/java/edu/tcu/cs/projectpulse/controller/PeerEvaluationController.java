@@ -53,7 +53,7 @@ public class PeerEvaluationController {
             @RequestParam Long weekId) {
 
         // Get all students in section
-        List<User> students = userRepository.searchStudents(null, null, null, null, sectionId);
+        List<User> students = userRepository.searchStudents(null, null, null, null, sectionId, null, null);
         List<Map<String, Object>> report = students.stream().map(student -> {
             List<PeerEvaluation> received = peerEvalService.getReceivedEvaluations(student.getId(), weekId);
             double grade = peerEvalService.computeGrade(student.getId(), weekId);
