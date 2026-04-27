@@ -82,26 +82,28 @@ public class PeerEvaluationController {
             @RequestParam List<Long> weekIds) {
 
         List<PeerEvaluation> evals = peerEvalService.getStudentEvaluationsForPeriod(studentId, weekIds);
-
-        // Group by week
         Map<Long, List<PeerEvaluation>> byWeek = evals.stream()
                 .collect(Collectors.groupingBy(e -> e.getActiveWeek().getId()));
 
-        List<Map<String, Object>> report = byWeek.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> {
-                    Long wkId = entry.getKey();
-                    List<PeerEvaluation> weekEvals = entry.getValue();
-                    double grade = weekEvals.stream()
-                            .mapToDouble(e -> e.getScores().stream().mapToInt(PeerEvaluationScore::getScore).sum())
-                            .average().orElse(0.0);
-                    return Map.<String, Object>of(
-                        "weekId", wkId,
-                        "weekStartDate", weekEvals.get(0).getActiveWeek().getStartDate().toString(),
-                        "grade", grade,
-                        "evaluations", weekEvals.stream().map(this::evalToInstructorMap).collect(Collectors.toList())
-                    );
-                }).collect(Collectors.toList());
+        // Return a row for every requested week, including weeks with no submissions
+        List<Map<String, Object>> report = weekIds.stream().map(wkId -> {
+            List<PeerEvaluation> weekEvals = byWeek.getOrDefault(wkId, Collections.emptyList());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("weekId", wkId);
+            if (weekEvals.isEmpty()) {
+                activeWeekRepository.findById(wkId).ifPresent(w ->
+                        row.put("weekStartDate", w.getStartDate().toString()));
+                row.put("grade", 0.0);
+                row.put("noSubmission", true);
+                row.put("evaluations", Collections.emptyList());
+            } else {
+                row.put("weekStartDate", weekEvals.get(0).getActiveWeek().getStartDate().toString());
+                row.put("grade", peerEvalService.computeGrade(studentId, wkId));
+                row.put("noSubmission", false);
+                row.put("evaluations", weekEvals.stream().map(this::evalToInstructorMap).collect(Collectors.toList()));
+            }
+            return row;
+        }).collect(Collectors.toList());
 
         return ResponseEntity.ok(report);
     }

@@ -7,8 +7,10 @@ import edu.tcu.cs.projectpulse.model.InvitationToken;
 import edu.tcu.cs.projectpulse.model.Section;
 import edu.tcu.cs.projectpulse.model.User;
 import edu.tcu.cs.projectpulse.repository.InvitationTokenRepository;
+import edu.tcu.cs.projectpulse.repository.PeerEvaluationRepository;
 import edu.tcu.cs.projectpulse.repository.SectionRepository;
 import edu.tcu.cs.projectpulse.repository.UserRepository;
+import edu.tcu.cs.projectpulse.repository.WeeklyActivityReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final InvitationTokenRepository tokenRepository;
     private final SectionRepository sectionRepository;
+    private final WeeklyActivityReportRepository warRepository;
+    private final PeerEvaluationRepository peerEvaluationRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
@@ -151,6 +155,20 @@ public class UserService {
 
     public void deleteUser(Long id) {
         User user = getUserById(id);
+
+        // Delete WARs first (cascades to Activities)
+        warRepository.deleteAll(warRepository.findByStudentId(id));
+
+        // Delete peer evals where student is evaluatee or evaluator (cascades to scores)
+        peerEvaluationRepository.deleteAll(peerEvaluationRepository.findByEvaluateeId(id));
+        peerEvaluationRepository.deleteAll(peerEvaluationRepository.findByEvaluatorId(id));
+
+        // Remove from team
+        if (user.getTeam() != null) {
+            user.setTeam(null);
+            userRepository.save(user);
+        }
+
         userRepository.delete(user);
     }
 

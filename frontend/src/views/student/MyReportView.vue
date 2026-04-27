@@ -1,6 +1,5 @@
 <template>
   <div>
-    <div :style="{ opacity: loading ? 0 : 1, transition: 'opacity 0.3s ease' }">
     <h1 class="text-h5 font-weight-bold mb-6">My Peer Evaluation Report</h1>
 
     <v-select
@@ -15,11 +14,17 @@
       @update:model-value="loadReport"
     />
 
-    <div v-if="report">
+    <v-alert v-if="report && report.evaluationCount === 0" type="info" class="mb-4">
+      No peer evaluations have been submitted for this week yet.
+    </v-alert>
+
+    <div v-if="report && report.evaluationCount > 0">
       <v-card class="mb-4">
         <v-card-title>Overall Grade</v-card-title>
         <v-card-text>
-          <div class="text-h2 font-weight-bold text-primary">{{ report.grade?.toFixed(1) }}</div>
+          <div class="text-h2 font-weight-bold text-primary">
+            {{ report.grade?.toFixed(1) }}<span class="text-h5 text-medium-emphasis"> / 60</span>
+          </div>
           <div class="text-body-2 text-medium-emphasis">Based on {{ report.evaluationCount }} evaluations</div>
         </v-card-text>
       </v-card>
@@ -56,7 +61,10 @@
         </v-card-text>
       </v-card>
     </div>
-    </div>
+
+    <v-alert v-if="!weeks.length" type="info" class="mt-4">
+      No completed weeks available yet.
+    </v-alert>
   </div>
 </template>
 
@@ -66,29 +74,26 @@ import { useAuthStore } from '@/stores/auth'
 import { getMe, getTeam, getActiveWeeks, getStudentPeerReport } from '@/api'
 
 const auth = useAuthStore()
-const loading = ref(true)
 const weeks = ref([])
 const selectedWeekId = ref(null)
 const report = ref(null)
 
 onMounted(async () => {
-  try {
-    const me = await getMe()
-    if (!me.data.teamId) return
-    const teamRes = await getTeam(me.data.teamId)
-    const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-    weeks.value = weekRes.data
-      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-      .map(w => ({
-        id: w.id,
-        label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-      }))
-    if (weeks.value.length > 0) {
-      selectedWeekId.value = weeks.value[0].id
-      await loadReport()
-    }
-  } finally {
-    loading.value = false
+  const me = await getMe()
+  if (!me.data.teamId) return
+  const teamRes = await getTeam(me.data.teamId)
+  const weekRes = await getActiveWeeks(teamRes.data.sectionId)
+  const now = new Date()
+  weeks.value = weekRes.data
+    .filter(w => w.active && new Date(w.endDate) < now)
+    .map(w => ({
+      id: w.id,
+      label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+    }))
+    .reverse()
+  if (weeks.value.length > 0) {
+    selectedWeekId.value = weeks.value[0].id
+    await loadReport()
   }
 })
 

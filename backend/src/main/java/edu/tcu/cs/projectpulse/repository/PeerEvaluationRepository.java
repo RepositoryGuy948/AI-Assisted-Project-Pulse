@@ -22,6 +22,12 @@ public interface PeerEvaluationRepository extends JpaRepository<PeerEvaluation, 
     boolean existsByEvaluatorIdAndEvaluateeIdAndActiveWeekId(
             Long evaluatorId, Long evaluateeId, Long weekId);
 
+    List<PeerEvaluation> findByTeamId(Long teamId);
+
+    List<PeerEvaluation> findByEvaluateeId(Long evaluateeId);
+
+    List<PeerEvaluation> findByEvaluatorId(Long evaluatorId);
+
     @Query("SELECT pe FROM PeerEvaluation pe WHERE pe.team.id = :teamId AND pe.activeWeek.id = :weekId")
     List<PeerEvaluation> findByTeamAndWeek(@Param("teamId") Long teamId, @Param("weekId") Long weekId);
 
