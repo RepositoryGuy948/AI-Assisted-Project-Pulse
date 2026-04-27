@@ -40,6 +40,31 @@ public class RubricService {
         return rubricRepository.save(rubric);
     }
 
+    public Rubric updateRubric(Long id, RubricDto dto) {
+        Rubric rubric = getRubricById(id);
+        if (!rubric.getName().equals(dto.getName()) && rubricRepository.existsByName(dto.getName())) {
+            throw new IllegalArgumentException("Rubric with name '" + dto.getName() + "' already exists.");
+        }
+        rubric.setName(dto.getName());
+        rubric.getCriteria().clear();
+        // Flush DELETEs to DB before inserting new criteria to avoid Hibernate ordering conflicts
+        rubricRepository.saveAndFlush(rubric);
+        if (dto.getCriteria() != null) {
+            dto.getCriteria().forEach(c -> {
+                if (c.getMaxScore() == null || c.getMaxScore() <= 0) {
+                    throw new IllegalArgumentException("Max score must be positive for criterion: " + c.getName());
+                }
+                rubric.getCriteria().add(Criterion.builder()
+                        .name(c.getName())
+                        .description(c.getDescription())
+                        .maxScore(c.getMaxScore())
+                        .rubric(rubric)
+                        .build());
+            });
+        }
+        return rubricRepository.saveAndFlush(rubric);
+    }
+
     public List<Rubric> getAllRubrics() {
         return rubricRepository.findAll();
     }

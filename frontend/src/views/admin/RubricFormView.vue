@@ -2,7 +2,7 @@
   <div>
     <div class="d-flex align-center mb-6">
       <v-btn icon="mdi-arrow-left" variant="text" to="/admin/rubrics" />
-      <h1 class="text-h5 font-weight-bold ml-2">New Rubric</h1>
+      <h1 class="text-h5 font-weight-bold ml-2">{{ isEdit ? 'Edit Rubric' : 'New Rubric' }}</h1>
     </div>
 
     <v-card max-width="700">
@@ -34,24 +34,48 @@
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn to="/admin/rubrics">Cancel</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">Create Rubric</v-btn>
+        <v-btn color="primary" :loading="saving" @click="save">
+          {{ isEdit ? 'Save Changes' : 'Create Rubric' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { createRubric } from '@/api'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { createRubric, updateRubric, getRubric } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const saving = ref(false)
 const error = ref('')
+
+const isEdit = computed(() => !!route.params.id)
 
 const form = ref({
   name: '',
   criteria: [{ name: '', description: '', maxScore: 10 }],
+})
+
+onMounted(async () => {
+  if (isEdit.value) {
+    try {
+      const res = await getRubric(route.params.id)
+      const rubric = res.data
+      form.value = {
+        name: rubric.name,
+        criteria: rubric.criteria.map(c => ({
+          name: c.name,
+          description: c.description || '',
+          maxScore: c.maxScore,
+        })),
+      }
+    } catch {
+      error.value = 'Failed to load rubric.'
+    }
+  }
 })
 
 function addCriterion() {
@@ -66,10 +90,14 @@ async function save() {
   error.value = ''
   saving.value = true
   try {
-    await createRubric(form.value)
+    if (isEdit.value) {
+      await updateRubric(route.params.id, form.value)
+    } else {
+      await createRubric(form.value)
+    }
     router.push('/admin/rubrics')
   } catch (e) {
-    error.value = e.response?.data?.message || 'Failed to create rubric.'
+    error.value = e.response?.data?.message || (isEdit.value ? 'Failed to update rubric.' : 'Failed to create rubric.')
   } finally {
     saving.value = false
   }

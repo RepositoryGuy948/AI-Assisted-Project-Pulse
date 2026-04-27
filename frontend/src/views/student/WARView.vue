@@ -1,7 +1,7 @@
 <template>
   <div>
+    <div :style="{ opacity: loading ? 0 : 1, transition: 'opacity 0.3s ease' }">
     <h1 class="text-h5 font-weight-bold mb-6">Weekly Activity Report</h1>
-
     <v-select
       v-model="selectedWeekId"
       :items="weeks"
@@ -50,6 +50,7 @@
       <v-card>
         <v-card-title>{{ editingActivity ? 'Edit Activity' : 'Add Activity' }}</v-card-title>
         <v-card-text>
+          <v-alert v-if="saveError" type="error" density="compact" class="mb-3">{{ saveError }}</v-alert>
           <v-select
             v-model="actForm.category"
             :items="categories"
@@ -86,6 +87,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    </div>
   </div>
 </template>
 
@@ -95,12 +97,14 @@ import { useAuthStore } from '@/stores/auth'
 import { getMe, getTeam, getActiveWeeks, getWAR, addActivity, updateActivity, deleteActivity } from '@/api'
 
 const auth = useAuthStore()
+const loading = ref(true)
 const weeks = ref([])
 const selectedWeekId = ref(null)
 const activities = ref([])
 const activityDialog = ref(false)
 const savingActivity = ref(false)
 const editingActivity = ref(null)
+const saveError = ref('')
 
 const categories = ['DEVELOPMENT', 'TESTING', 'BUGFIX', 'COMMUNICATION', 'DOCUMENTATION',
   'DESIGN', 'PLANNING', 'LEARNING', 'DEPLOYMENT', 'SUPPORT', 'MISCELLANEOUS']
@@ -114,24 +118,24 @@ onMounted(async () => {
 })
 
 async function loadWeeks(me) {
-  if (!me.teamId) return
+  if (!me.teamId) { loading.value = false; return }
   try {
     const teamRes = await getTeam(me.teamId)
     const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-    const today = new Date()
     weeks.value = weekRes.data
-      .filter(w => new Date(w.startDate) <= today)
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
       .map(w => ({
         id: w.id,
-        label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}${w.active ? '' : ' (inactive)'}`,
+        label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
       }))
-      .reverse()
     if (weeks.value.length > 0) {
       selectedWeekId.value = weeks.value[0].id
       await loadWAR()
     }
   } catch (e) {
     console.error(e)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -143,17 +147,20 @@ async function loadWAR() {
 
 function openAddActivity() {
   editingActivity.value = null
+  saveError.value = ''
   actForm.value = { category: 'DEVELOPMENT', description: '', plannedHours: 0, actualHours: 0, status: 'IN_PROGRESS' }
   activityDialog.value = true
 }
 
 function openEditActivity(activity) {
   editingActivity.value = activity
+  saveError.value = ''
   actForm.value = { ...activity }
   activityDialog.value = true
 }
 
 async function saveActivity() {
+  saveError.value = ''
   savingActivity.value = true
   try {
     if (editingActivity.value) {
@@ -163,6 +170,8 @@ async function saveActivity() {
     }
     activityDialog.value = false
     await loadWAR()
+  } catch (e) {
+    saveError.value = e.response?.data?.message || 'Failed to save activity.'
   } finally {
     savingActivity.value = false
   }

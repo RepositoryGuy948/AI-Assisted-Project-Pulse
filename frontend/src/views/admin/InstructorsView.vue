@@ -7,7 +7,20 @@
     <v-row class="mb-4">
       <v-col cols="3"><v-text-field v-model="filters.firstName" label="First Name" variant="outlined" density="compact" clearable @update:model-value="fetchInstructors" /></v-col>
       <v-col cols="3"><v-text-field v-model="filters.lastName" label="Last Name" variant="outlined" density="compact" clearable @update:model-value="fetchInstructors" /></v-col>
-      <v-col cols="4"><v-text-field v-model="filters.email" label="Email" variant="outlined" density="compact" clearable @update:model-value="fetchInstructors" /></v-col>
+      <v-col cols="3"><v-text-field v-model="filters.email" label="Email" variant="outlined" density="compact" clearable @update:model-value="fetchInstructors" /></v-col>
+      <v-col cols="3">
+        <v-select
+          v-model="filters.enabled"
+          :items="statusOptions"
+          item-title="label"
+          item-value="value"
+          label="Status"
+          variant="outlined"
+          density="compact"
+          clearable
+          @update:model-value="fetchInstructors"
+        />
+      </v-col>
     </v-row>
 
     <v-card>
@@ -35,7 +48,11 @@ import { getInstructors, deactivateInstructor, reactivateInstructor } from '@/ap
 
 const instructors = ref([])
 const loading = ref(false)
-const filters = ref({ firstName: '', lastName: '', email: '' })
+const filters = ref({ firstName: '', lastName: '', email: '', enabled: null })
+const statusOptions = [
+  { label: 'Active', value: true },
+  { label: 'Inactive', value: false },
+]
 
 const headers = [
   { title: 'First Name', key: 'firstName' },
@@ -54,6 +71,7 @@ async function fetchInstructors() {
       firstName: filters.value.firstName || undefined,
       lastName: filters.value.lastName || undefined,
       email: filters.value.email || undefined,
+      enabled: filters.value.enabled != null ? filters.value.enabled : undefined,
     })
     instructors.value = res.data.sort((a, b) => a.lastName.localeCompare(b.lastName))
   } finally {
@@ -69,7 +87,9 @@ async function deactivate(id) {
 }
 
 async function reactivate(id) {
-  await reactivateInstructor(id)
-  fetchInstructors()
+  if (confirm('Reactivate this instructor? They will regain access to the system.')) {
+    await reactivateInstructor(id)
+    fetchInstructors()
+  }
 }
 </script>

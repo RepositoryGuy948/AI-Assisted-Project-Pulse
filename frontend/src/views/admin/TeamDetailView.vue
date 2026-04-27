@@ -5,7 +5,8 @@
       <h1 class="text-h5 font-weight-bold ml-2">{{ team.name }}</h1>
       <v-chip class="ml-3" size="small">{{ team.sectionName }}</v-chip>
       <v-spacer />
-      <v-btn variant="outlined" prepend-icon="mdi-pencil" @click="editDialog = true">Edit</v-btn>
+      <v-btn variant="outlined" prepend-icon="mdi-pencil" class="mr-2" @click="editDialog = true">Edit</v-btn>
+      <v-btn variant="outlined" color="error" prepend-icon="mdi-delete" @click="deleteDialog = true">Delete</v-btn>
     </div>
 
     <v-row>
@@ -121,26 +122,48 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Delete Team Dialog -->
+    <v-dialog v-model="deleteDialog" max-width="450">
+      <v-card>
+        <v-card-title class="text-error">Delete Team</v-card-title>
+        <v-card-text>
+          <v-alert type="warning" density="compact" class="mb-3">
+            This will permanently delete the team and all associated WARs and peer evaluations.
+            This action cannot be undone.
+          </v-alert>
+          <p>Are you sure you want to delete <strong>{{ team.name }}</strong>?</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="deleteDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="deleting" @click="doDeleteTeam">Delete Permanently</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { getTeam, updateTeam, assignStudents, assignInstructors,
+import { useRoute, useRouter } from 'vue-router'
+import { getTeam, updateTeam, deleteTeam, assignStudents, assignInstructors,
   removeStudentFromTeam, removeInstructorFromTeam, getStudents, getInstructors } from '@/api'
 
 const route = useRoute()
+const router = useRouter()
 const team = ref(null)
 const assignStudentsDialog = ref(false)
 const assignInstructorsDialog = ref(false)
 const editDialog = ref(false)
+const deleteDialog = ref(false)
 const selectedStudents = ref([])
 const selectedInstructors = ref([])
 const availableStudents = ref([])
 const availableInstructors = ref([])
 const assigning = ref(false)
 const saving = ref(false)
+const deleting = ref(false)
 const editForm = ref({})
 
 onMounted(async () => {
@@ -209,6 +232,16 @@ async function saveEdit() {
     await loadTeam()
   } finally {
     saving.value = false
+  }
+}
+
+async function doDeleteTeam() {
+  deleting.value = true
+  try {
+    await deleteTeam(team.value.id)
+    router.push('/admin/teams')
+  } finally {
+    deleting.value = false
   }
 }
 </script>

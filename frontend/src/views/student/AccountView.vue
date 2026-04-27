@@ -41,6 +41,8 @@ async function save() {
   error.value = ''
   try {
     await updateStudent(auth.user.id, form.value)
+    auth.user = { ...auth.user, firstName: form.value.firstName, lastName: form.value.lastName, email: form.value.email }
+    localStorage.setItem('user', JSON.stringify(auth.user))
     success.value = true
   } catch (e) {
     error.value = e.response?.data?.message || 'Update failed.'

@@ -7,6 +7,10 @@
       <v-btn color="primary" :loading="saving" @click="saveWeeks">Save Changes</v-btn>
     </div>
 
+    <v-alert v-if="error" type="error" density="compact" class="mb-4" closable @click:close="error = ''">
+      {{ error }}
+    </v-alert>
+
     <v-card>
       <v-card-text>
         <p class="text-body-2 text-medium-emphasis mb-4">
@@ -29,6 +33,12 @@
         </v-list>
       </v-card-text>
     </v-card>
+    <v-snackbar v-model="saved" color="success" timeout="3000" location="bottom end">
+      Changes saved successfully.
+      <template #actions>
+        <v-btn variant="text" @click="saved = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
@@ -40,6 +50,8 @@ import { getActiveWeeks, updateActiveWeeks } from '@/api'
 const route = useRoute()
 const weeks = ref([])
 const saving = ref(false)
+const saved = ref(false)
+const error = ref('')
 
 onMounted(async () => {
   const res = await getActiveWeeks(route.params.id)
@@ -48,10 +60,14 @@ onMounted(async () => {
 
 async function saveWeeks() {
   saving.value = true
+  error.value = ''
   try {
     await updateActiveWeeks(route.params.id, {
       weeks: weeks.value.map(w => ({ id: w.id, active: w.active }))
     })
+    saved.value = true
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Failed to save changes. Please try again.'
   } finally {
     saving.value = false
   }

@@ -9,7 +9,16 @@
     <v-row>
       <v-col v-for="rubric in rubrics" :key="rubric.id" cols="12" md="6" lg="4">
         <v-card>
-          <v-card-title>{{ rubric.name }}</v-card-title>
+          <v-card-title class="d-flex align-center">
+            {{ rubric.name }}
+            <v-spacer />
+            <v-btn
+              icon="mdi-pencil"
+              variant="text"
+              size="small"
+              :to="`/admin/rubrics/${rubric.id}/edit`"
+            />
+          </v-card-title>
           <v-card-text>
             <v-list density="compact">
               <v-list-item

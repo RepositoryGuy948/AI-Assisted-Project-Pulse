@@ -24,6 +24,7 @@ const routes = [
       { path: 'instructors/:id', component: () => import('@/views/admin/InstructorDetailView.vue') },
       { path: 'rubrics', component: () => import('@/views/admin/RubricsView.vue') },
       { path: 'rubrics/new', component: () => import('@/views/admin/RubricFormView.vue') },
+      { path: 'rubrics/:id/edit', component: () => import('@/views/admin/RubricFormView.vue') },
     ],
   },
 
@@ -39,6 +40,7 @@ const routes = [
       { path: 'war', component: () => import('@/views/student/WARView.vue') },
       { path: 'peer-evaluation', component: () => import('@/views/student/PeerEvaluationView.vue') },
       { path: 'my-report', component: () => import('@/views/student/MyReportView.vue') },
+      { path: 'team-war-report', component: () => import('@/views/student/TeamWARReportView.vue') },
     ],
   },
 
@@ -73,11 +75,15 @@ router.beforeEach((to, from, next) => {
   const auth = useAuthStore()
 
   if (to.meta.public) return next()
-  if (!auth.isAuthenticated) return next('/')
+
+  // No token or no user object → go to login
+  if (!auth.isAuthenticated || !auth.user) {
+    auth.logout()
+    return next('/')
+  }
 
   const requiredRoles = to.meta.roles
-  if (requiredRoles && !requiredRoles.includes(auth.user?.role)) {
-    // Redirect to correct home
+  if (requiredRoles && !requiredRoles.includes(auth.user.role)) {
     if (auth.isAdmin) return next('/admin')
     if (auth.isInstructor) return next('/instructor')
     if (auth.isStudent) return next('/student')

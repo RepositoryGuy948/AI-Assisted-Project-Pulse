@@ -21,18 +21,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.role = :role AND " +
            "(:firstName IS NULL OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :firstName, '%'))) AND " +
            "(:lastName IS NULL OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) AND " +
-           "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%')))")
+           "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
+           "(:enabled IS NULL OR u.enabled = :enabled)")
     List<User> searchByRole(@Param("role") User.Role role,
                             @Param("firstName") String firstName,
                             @Param("lastName") String lastName,
-                            @Param("email") String email);
+                            @Param("email") String email,
+                            @Param("enabled") Boolean enabled);
 
-    @Query("SELECT u FROM User u WHERE u.role = 'STUDENT' AND " +
+    @Query("SELECT u FROM User u LEFT JOIN u.team t LEFT JOIN t.section s WHERE u.role = 'STUDENT' AND " +
            "(:firstName IS NULL OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :firstName, '%'))) AND " +
            "(:lastName IS NULL OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) AND " +
            "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
-           "(:teamId IS NULL OR u.team.id = :teamId) AND " +
-           "(:sectionId IS NULL OR u.team.section.id = :sectionId)")
+           "(:teamId IS NULL OR t.id = :teamId) AND " +
+           "(:sectionId IS NULL OR s.id = :sectionId OR u.team IS NULL)")
     List<User> searchStudents(@Param("firstName") String firstName,
                               @Param("lastName") String lastName,
                               @Param("email") String email,

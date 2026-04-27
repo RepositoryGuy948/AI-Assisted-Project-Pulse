@@ -12,8 +12,13 @@
 
             <v-alert v-if="error" type="error" class="mb-4" density="compact">{{ error }}</v-alert>
             <v-alert v-if="!tokenValid && !loading" type="warning" class="mb-4">
-              Invalid or expired registration link.
+              {{ tokenError }}
             </v-alert>
+
+            <div v-if="loading" class="text-center py-6">
+              <v-progress-circular indeterminate color="secondary" />
+              <p class="text-body-2 text-medium-emphasis mt-3">Validating your registration link...</p>
+            </div>
 
             <v-form v-if="tokenValid" @submit.prevent="handleRegister">
               <v-row>
@@ -38,15 +43,20 @@
               <v-text-field
                 v-model="form.password"
                 label="Password"
-                type="password"
+                :type="showPassword ? 'text' : 'password'"
+                :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                @click:append-inner="showPassword = !showPassword"
                 variant="outlined"
                 class="mb-3"
+                hint="Minimum 8 characters"
                 required
               />
               <v-text-field
                 v-model="form.confirmPassword"
                 label="Confirm Password"
-                type="password"
+                :type="showConfirmPassword ? 'text' : 'password'"
+                :append-inner-icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                @click:append-inner="showConfirmPassword = !showConfirmPassword"
                 variant="outlined"
                 class="mb-4"
                 required
@@ -74,9 +84,12 @@ const auth = useAuthStore()
 
 const loading = ref(true)
 const tokenValid = ref(false)
+const tokenError = ref('')
 const sectionName = ref('')
 const error = ref('')
 const submitting = ref(false)
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 
 const form = ref({
   token: route.query.token || '',
@@ -94,14 +107,22 @@ onMounted(async () => {
     tokenValid.value = true
     form.value.email = res.data.email
     sectionName.value = res.data.sectionName
-  } catch {
+  } catch (e) {
     tokenValid.value = false
+    const msg = e.response?.data?.message || ''
+    tokenError.value = msg.toLowerCase().includes('used')
+      ? 'This registration link has already been used.'
+      : 'This registration link is invalid or has expired.'
   } finally {
     loading.value = false
   }
 })
 
 async function handleRegister() {
+  if (form.value.password.length < 8) {
+    error.value = 'Password must be at least 8 characters.'
+    return
+  }
   if (form.value.password !== form.value.confirmPassword) {
     error.value = 'Passwords do not match.'
     return

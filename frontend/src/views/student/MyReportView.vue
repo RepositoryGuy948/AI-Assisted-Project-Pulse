@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div :style="{ opacity: loading ? 0 : 1, transition: 'opacity 0.3s ease' }">
     <h1 class="text-h5 font-weight-bold mb-6">My Peer Evaluation Report</h1>
 
     <v-select
@@ -55,6 +56,7 @@
         </v-card-text>
       </v-card>
     </div>
+    </div>
   </div>
 </template>
 
@@ -64,26 +66,29 @@ import { useAuthStore } from '@/stores/auth'
 import { getMe, getTeam, getActiveWeeks, getStudentPeerReport } from '@/api'
 
 const auth = useAuthStore()
+const loading = ref(true)
 const weeks = ref([])
 const selectedWeekId = ref(null)
 const report = ref(null)
 
 onMounted(async () => {
-  const me = await getMe()
-  if (!me.data.teamId) return
-  const teamRes = await getTeam(me.data.teamId)
-  const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-  const now = new Date()
-  weeks.value = weekRes.data
-    .filter(w => w.active && new Date(w.endDate) < now)
-    .map(w => ({
-      id: w.id,
-      label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-    }))
-    .reverse()
-  if (weeks.value.length > 0) {
-    selectedWeekId.value = weeks.value[0].id
-    await loadReport()
+  try {
+    const me = await getMe()
+    if (!me.data.teamId) return
+    const teamRes = await getTeam(me.data.teamId)
+    const weekRes = await getActiveWeeks(teamRes.data.sectionId)
+    weeks.value = weekRes.data
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+      .map(w => ({
+        id: w.id,
+        label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      }))
+    if (weeks.value.length > 0) {
+      selectedWeekId.value = weeks.value[0].id
+      await loadReport()
+    }
+  } finally {
+    loading.value = false
   }
 })
 

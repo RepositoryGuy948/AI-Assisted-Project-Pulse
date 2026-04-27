@@ -59,9 +59,9 @@ public class WARController {
         return ResponseEntity.noContent().build();
     }
 
-    // Team WAR report (UC-32)
+    // Team WAR report (UC-32) — Instructor and Student can both generate
     @GetMapping("/teams/{teamId}/war-report")
-    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR', 'STUDENT')")
     public ResponseEntity<List<Map<String, Object>>> getTeamWARReport(@PathVariable Long teamId,
                                                                        @RequestParam Long weekId) {
         return ResponseEntity.ok(warService.getTeamWARs(teamId, weekId)
