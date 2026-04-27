@@ -32,7 +32,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
            "(:lastName IS NULL OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) AND " +
            "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
            "(:teamId IS NULL OR u.team.id = :teamId) AND " +
-           "(:sectionId IS NULL OR u.team.section.id = :sectionId)")
+           "(:sectionId IS NULL OR u.team IS NULL OR u.team.section.id = :sectionId)")
     List<User> searchStudents(@Param("firstName") String firstName,
                               @Param("lastName") String lastName,
                               @Param("email") String email,

@@ -2,7 +2,10 @@
   <div>
     <div class="d-flex align-center mb-6">
       <v-btn icon="mdi-arrow-left" variant="text" @click="$router.back()" />
-      <h1 class="text-h5 font-weight-bold ml-2">Peer Evaluation Report — Individual</h1>
+      <div class="ml-2">
+        <h1 class="text-h5 font-weight-bold">Peer Evaluation Report</h1>
+        <p v-if="studentName" class="text-body-2 text-medium-emphasis mb-0">{{ studentName }}</p>
+      </div>
     </div>
 
     <v-row class="mb-4">
@@ -27,7 +30,9 @@
         />
       </v-col>
       <v-col cols="4" class="d-flex align-center">
-        <v-btn color="primary" @click="loadReport" :loading="loading">Generate Report</v-btn>
+        <v-btn color="primary" :loading="loading" :disabled="!startWeekId || !endWeekId" @click="loadReport">
+          Generate Report
+        </v-btn>
       </v-col>
     </v-row>
 
@@ -36,45 +41,75 @@
         :headers="headers"
         :items="report"
         item-value="weekId"
+        expand-on-click
+        show-expand
       >
+        <template #item.weekStartDate="{ item }">
+          {{ formatDate(item.weekStartDate) }}
+        </template>
         <template #item.grade="{ item }">
-          <span class="font-weight-bold">{{ item.grade?.toFixed(1) }}</span>
+          <v-chip v-if="item.noSubmission" color="warning" size="small">No submission</v-chip>
+          <span v-else class="font-weight-bold">{{ item.grade?.toFixed(1) }} / 60</span>
         </template>
         <template #item.evaluations="{ item }">
-          <v-btn size="small" variant="text" @click="showDetails(item)">
-            {{ item.evaluations.length }} evaluations
-          </v-btn>
+          <span v-if="item.noSubmission" class="text-medium-emphasis">—</span>
+          <span v-else>{{ item.evaluations.length }} evaluator(s)</span>
+        </template>
+        <template #expanded-row="{ item }">
+          <td :colspan="headers.length + 1" class="pa-4 bg-grey-lighten-5">
+            <div v-if="item.noSubmission" class="text-medium-emphasis">
+              This student did not receive any peer evaluations for this week.
+            </div>
+            <v-card
+              v-else
+              v-for="ev in item.evaluations"
+              :key="ev.id"
+              class="mb-3"
+              variant="outlined"
+            >
+              <v-card-title class="text-body-1">From: {{ ev.evaluatorName }}</v-card-title>
+              <v-card-text>
+                <!-- Per-criterion scores -->
+                <v-table density="compact" class="mb-3">
+                  <thead>
+                    <tr>
+                      <th>Criterion</th>
+                      <th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="s in ev.scores" :key="s.criterionId">
+                      <td>{{ s.criterionName }}</td>
+                      <td>
+                        <v-chip size="small" color="primary">{{ s.score }}</v-chip>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <v-chip size="small" class="mb-2">Total: {{ ev.totalScore }}</v-chip>
+                <div v-if="ev.publicComment" class="mt-1 text-body-2">
+                  <strong>Public:</strong> {{ ev.publicComment }}
+                </div>
+                <div v-if="ev.privateComment" class="mt-1 text-body-2">
+                  <strong>Private:</strong> {{ ev.privateComment }}
+                </div>
+              </v-card-text>
+            </v-card>
+          </td>
         </template>
       </v-data-table>
     </v-card>
 
-    <!-- Details Dialog -->
-    <v-dialog v-model="detailDialog" max-width="700">
-      <v-card v-if="selectedItem">
-        <v-card-title>Week {{ selectedItem.weekStartDate }}</v-card-title>
-        <v-card-text>
-          <v-card v-for="ev in selectedItem.evaluations" :key="ev.id" class="mb-3" variant="outlined">
-            <v-card-title class="text-body-1">From: {{ ev.evaluatorName }}</v-card-title>
-            <v-card-text>
-              <div v-if="ev.publicComment"><strong>Public:</strong> {{ ev.publicComment }}</div>
-              <div v-if="ev.privateComment" class="mt-1"><strong>Private:</strong> {{ ev.privateComment }}</div>
-              <v-chip size="small" class="mt-2">Total: {{ ev.totalScore }}</v-chip>
-            </v-card-text>
-          </v-card>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="detailDialog = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <v-alert v-else-if="generated" type="info" class="mt-4">
+      No peer evaluation data found for this range.
+    </v-alert>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getStudent, getStudents, getActiveWeeks, getStudentPeerPeriodReport } from '@/api'
+import { getStudent, getTeam, getActiveWeeks, getStudentPeerPeriodReport } from '@/api'
 
 const route = useRoute()
 const weeks = ref([])
@@ -82,8 +117,8 @@ const report = ref([])
 const startWeekId = ref(null)
 const endWeekId = ref(null)
 const loading = ref(false)
-const detailDialog = ref(false)
-const selectedItem = ref(null)
+const generated = ref(false)
+const studentName = ref('')
 
 const headers = [
   { title: 'Week', key: 'weekStartDate' },
@@ -92,34 +127,44 @@ const headers = [
 ]
 
 onMounted(async () => {
-  // Get student's section weeks - we need to know which section this student is in
   const studentRes = await getStudent(route.params.id)
   const student = studentRes.data
-  // For weeks, we'd need to know the section - simplified approach
-  // In real implementation, load section weeks based on student's team
+  studentName.value = `${student.firstName} ${student.lastName}`
+
+  if (!student.teamId) return
+
+  const teamRes = await getTeam(student.teamId)
+  const weekRes = await getActiveWeeks(teamRes.data.sectionId)
+  const now = new Date()
+
+  weeks.value = weekRes.data
+    .filter(w => w.active && new Date(w.endDate) < now)
+    .map(w => ({
+      id: w.id,
+      label: `Week of ${formatDate(w.startDate)}`,
+    }))
 })
 
 async function loadReport() {
   if (!startWeekId.value || !endWeekId.value) return
   loading.value = true
+  generated.value = false
   try {
-    // Get all week IDs in range
     const startIdx = weeks.value.findIndex(w => w.id === startWeekId.value)
     const endIdx = weeks.value.findIndex(w => w.id === endWeekId.value)
-    const weekIds = weeks.value.slice(
-      Math.min(startIdx, endIdx),
-      Math.max(startIdx, endIdx) + 1
-    ).map(w => w.id)
+    const weekIds = weeks.value
+      .slice(Math.min(startIdx, endIdx), Math.max(startIdx, endIdx) + 1)
+      .map(w => w.id)
 
     const res = await getStudentPeerPeriodReport(route.params.id, weekIds)
     report.value = res.data
+    generated.value = true
   } finally {
     loading.value = false
   }
 }
 
-function showDetails(item) {
-  selectedItem.value = item
-  detailDialog.value = true
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 </script>

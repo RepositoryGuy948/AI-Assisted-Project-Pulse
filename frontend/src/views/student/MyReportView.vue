@@ -14,11 +14,17 @@
       @update:model-value="loadReport"
     />
 
-    <div v-if="report">
+    <v-alert v-if="report && report.evaluationCount === 0" type="info" class="mb-4">
+      No peer evaluations have been submitted for this week yet.
+    </v-alert>
+
+    <div v-if="report && report.evaluationCount > 0">
       <v-card class="mb-4">
         <v-card-title>Overall Grade</v-card-title>
         <v-card-text>
-          <div class="text-h2 font-weight-bold text-primary">{{ report.grade?.toFixed(1) }}</div>
+          <div class="text-h2 font-weight-bold text-primary">
+            {{ report.grade?.toFixed(1) }}<span class="text-h5 text-medium-emphasis"> / 60</span>
+          </div>
           <div class="text-body-2 text-medium-emphasis">Based on {{ report.evaluationCount }} evaluations</div>
         </v-card-text>
       </v-card>
@@ -55,6 +61,10 @@
         </v-card-text>
       </v-card>
     </div>
+
+    <v-alert v-if="!weeks.length" type="info" class="mt-4">
+      No completed weeks available yet.
+    </v-alert>
   </div>
 </template>
 
