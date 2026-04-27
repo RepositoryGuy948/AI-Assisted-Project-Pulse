@@ -65,7 +65,7 @@ public class WARController {
         return ResponseEntity.noContent().build();
     }
 
-    // Team WAR report (UC-32) — students can view their own team's report
+    // Team WAR report (UC-32) — Instructor and Student can both generate
     @GetMapping("/teams/{teamId}/war-report")
     @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR', 'STUDENT')")
     public ResponseEntity<List<Map<String, Object>>> getTeamWARReport(@PathVariable Long teamId,

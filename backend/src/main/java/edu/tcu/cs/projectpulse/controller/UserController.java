@@ -56,6 +56,20 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/students/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deactivateStudent(@PathVariable Long id) {
+        userService.deactivateStudent(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/students/{id}/reactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> reactivateStudent(@PathVariable Long id) {
+        userService.reactivateStudent(id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- Instructors ---
 
     @GetMapping("/instructors")
@@ -63,8 +77,9 @@ public class UserController {
     public ResponseEntity<List<UserDto>> getInstructors(
             @RequestParam(required = false) String firstName,
             @RequestParam(required = false) String lastName,
-            @RequestParam(required = false) String email) {
-        return ResponseEntity.ok(userService.searchInstructors(firstName, lastName, email)
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) Boolean enabled) {
+        return ResponseEntity.ok(userService.searchInstructors(firstName, lastName, email, enabled)
                 .stream().map(userService::toDto).collect(Collectors.toList()));
     }
 

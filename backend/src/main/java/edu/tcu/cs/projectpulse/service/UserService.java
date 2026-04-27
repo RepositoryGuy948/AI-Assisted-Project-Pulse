@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class UserService {
+
+    private static final Set<String> PROTECTED_EMAILS = Set.of(
+        "admin@projectpulse.edu", "b.wei@abc.edu", "j.smith@abc.edu", "s.johnson@abc.edu"
+    );
 
     private final UserRepository userRepository;
     private final InvitationTokenRepository tokenRepository;
@@ -126,8 +131,8 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public List<User> searchInstructors(String firstName, String lastName, String email) {
-        return userRepository.searchByRole(User.Role.INSTRUCTOR, firstName, lastName, email);
+    public List<User> searchInstructors(String firstName, String lastName, String email, Boolean enabled) {
+        return userRepository.searchByRole(User.Role.INSTRUCTOR, firstName, lastName, email, enabled);
     }
 
     public User updateUser(Long id, UserDto dto) {
@@ -151,6 +156,9 @@ public class UserService {
 
     public void deactivateInstructor(Long id) {
         User instructor = getUserById(id);
+        if (PROTECTED_EMAILS.contains(instructor.getEmail())) {
+            throw new IllegalArgumentException("Demo accounts cannot be deactivated.");
+        }
         instructor.setEnabled(false);
         userRepository.save(instructor);
     }
@@ -159,6 +167,21 @@ public class UserService {
         User instructor = getUserById(id);
         instructor.setEnabled(true);
         userRepository.save(instructor);
+    }
+
+    public void deactivateStudent(Long id) {
+        User student = getUserById(id);
+        if (PROTECTED_EMAILS.contains(student.getEmail())) {
+            throw new IllegalArgumentException("Demo accounts cannot be deactivated.");
+        }
+        student.setEnabled(false);
+        userRepository.save(student);
+    }
+
+    public void reactivateStudent(Long id) {
+        User student = getUserById(id);
+        student.setEnabled(true);
+        userRepository.save(student);
     }
 
     public UserDto toDto(User user) {
@@ -170,12 +193,19 @@ public class UserService {
         dto.setLastName(user.getLastName());
         dto.setRole(user.getRole().name());
         dto.setEnabled(user.isEnabled());
-        if (user.getTeam() != null) {
+        if (user.getRole() == User.Role.STUDENT && user.getTeam() != null) {
             dto.setTeamId(user.getTeam().getId());
             dto.setTeamName(user.getTeam().getName());
             if (user.getTeam().getSection() != null) {
+                dto.setSectionId(user.getTeam().getSection().getId());
                 dto.setSectionName(user.getTeam().getSection().getName());
             }
+        }
+        if (user.getRole() == User.Role.INSTRUCTOR && user.getInstructorTeams() != null) {
+            dto.setSupervisedTeams(user.getInstructorTeams().stream()
+                    .map(t -> new UserDto.TeamSummary(t.getId(), t.getName(),
+                            t.getSection() != null ? t.getSection().getName() : ""))
+                    .collect(Collectors.toList()));
         }
         return dto;
     }

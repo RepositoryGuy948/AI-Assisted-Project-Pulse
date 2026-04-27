@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -46,7 +47,7 @@ public class SectionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR', 'STUDENT')")
     public ResponseEntity<Map<String, Object>> getSection(@PathVariable Long id) {
         Section section = sectionService.getById(id);
         return ResponseEntity.ok(toDetailMap(section));
@@ -63,7 +64,7 @@ public class SectionController {
     @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR', 'STUDENT')")
     public ResponseEntity<List<ActiveWeekDto>> getActiveWeeks(@PathVariable Long id) {
         return ResponseEntity.ok(sectionService.getActiveWeeks(id).stream()
-                .map(this::weekToDto).collect(Collectors.toList()));
+                .map(w -> weekToDto(w, id)).collect(Collectors.toList()));
     }
 
     @PutMapping("/{id}/active-weeks")
@@ -111,13 +112,13 @@ public class SectionController {
         return dto;
     }
 
-    private ActiveWeekDto weekToDto(ActiveWeek w) {
+    private ActiveWeekDto weekToDto(ActiveWeek w, Long sectionId) {
         ActiveWeekDto dto = new ActiveWeekDto();
         dto.setId(w.getId());
         dto.setStartDate(w.getStartDate());
         dto.setEndDate(w.getEndDate());
         dto.setActive(w.isActive());
-        dto.setSectionId(w.getSection().getId());
+        dto.setSectionId(sectionId);
         return dto;
     }
 
@@ -133,16 +134,60 @@ public class SectionController {
     }
 
     private Map<String, Object> toDetailMap(Section section) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id", section.getId());
-        m.put("name", section.getName());
-        m.put("startDate", section.getStartDate());
-        m.put("endDate", section.getEndDate());
-        m.put("rubricId", section.getRubric() != null ? section.getRubric().getId() : null);
-        m.put("rubricName", section.getRubric() != null ? section.getRubric().getName() : null);
-        m.put("teams", section.getTeams().stream().map(t -> Map.of(
-            "id", t.getId(), "name", t.getName()
+        // Students assigned to teams in this section
+        Set<Long> assignedStudentIds = section.getTeams().stream()
+                .flatMap(t -> t.getStudents().stream())
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        // Instructors assigned to teams in this section
+        Set<Long> assignedInstructorIds = section.getTeams().stream()
+                .flatMap(t -> t.getInstructors().stream())
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        // All students in section (those whose team is in this section)
+        List<User> allStudents = userService.searchStudents(null, null, null, null, section.getId());
+        List<User> unassignedStudents = allStudents.stream()
+                .filter(s -> !assignedStudentIds.contains(s.getId()))
+                .collect(Collectors.toList());
+
+        // All instructors in section (those assigned to any team in this section)
+        List<User> allInstructors = section.getTeams().stream()
+                .flatMap(t -> t.getInstructors().stream())
+                .distinct()
+                .collect(Collectors.toList());
+        List<User> unassignedInstructors = allInstructors.stream()
+                .filter(i -> !assignedInstructorIds.contains(i.getId()))
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", section.getId());
+        result.put("name", section.getName());
+        result.put("startDate", section.getStartDate());
+        result.put("endDate", section.getEndDate());
+        result.put("rubricId", section.getRubric() != null ? section.getRubric().getId() : null);
+        result.put("rubricName", section.getRubric() != null ? section.getRubric().getName() : null);
+        result.put("rubricCriteria", section.getRubric() != null
+                ? section.getRubric().getCriteria().stream().map(c -> Map.of(
+                        "id", c.getId(), "name", c.getName(), "description", c.getDescription() != null ? c.getDescription() : "", "maxScore", c.getMaxScore()
+                  )).collect(Collectors.toList())
+                : List.of());
+        result.put("teams", section.getTeams().stream().map(t -> Map.of(
+                "id", t.getId(), "name", t.getName(),
+                "students", t.getStudents().stream().map(s -> Map.of(
+                        "id", s.getId(), "firstName", s.getFirstName(), "lastName", s.getLastName()
+                )).collect(Collectors.toList()),
+                "instructors", t.getInstructors().stream().map(i -> Map.of(
+                        "id", i.getId(), "firstName", i.getFirstName(), "lastName", i.getLastName()
+                )).collect(Collectors.toList())
         )).collect(Collectors.toList()));
-        return m;
+        result.put("unassignedStudents", unassignedStudents.stream().map(s -> Map.of(
+                "id", s.getId(), "firstName", s.getFirstName(), "lastName", s.getLastName(), "email", s.getEmail()
+        )).collect(Collectors.toList()));
+        result.put("unassignedInstructors", unassignedInstructors.stream().map(i -> Map.of(
+                "id", i.getId(), "firstName", i.getFirstName(), "lastName", i.getLastName(), "email", i.getEmail()
+        )).collect(Collectors.toList()));
+        return result;
     }
 }

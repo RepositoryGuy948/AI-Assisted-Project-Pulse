@@ -18,46 +18,33 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Create default admin
-        if (!userRepository.existsByEmail("admin@projectpulse.edu")) {
-            User admin = User.builder()
-                    .email("admin@projectpulse.edu")
-                    .password(passwordEncoder.encode("admin123"))
-                    .firstName("System")
-                    .lastName("Admin")
-                    .role(User.Role.ADMIN)
-                    .enabled(true)
-                    .build();
-            userRepository.save(admin);
-            log.info("Default admin created: admin@projectpulse.edu / admin123");
-        }
+        ensureUser("admin@projectpulse.edu", "admin123", "System", "Admin", User.Role.ADMIN);
+        ensureUser("b.wei@abc.edu", "123456", "Bingyang", "Wei", User.Role.INSTRUCTOR);
+        ensureUser("j.smith@abc.edu", "123456", "John", "Smith", User.Role.STUDENT);
+        ensureUser("s.johnson@abc.edu", "123456", "Sarah", "Johnson", User.Role.STUDENT);
+    }
 
-        // Create default instructor (from spec)
-        if (!userRepository.existsByEmail("b.wei@abc.edu")) {
-            User instructor = User.builder()
-                    .email("b.wei@abc.edu")
-                    .password(passwordEncoder.encode("123456"))
-                    .firstName("Bingyang")
-                    .lastName("Wei")
-                    .role(User.Role.INSTRUCTOR)
-                    .enabled(true)
-                    .build();
-            userRepository.save(instructor);
-            log.info("Default instructor created: b.wei@abc.edu / 123456");
-        }
-
-        // Create default student (from spec)
-        if (!userRepository.existsByEmail("j.smith@abc.edu")) {
-            User student = User.builder()
-                    .email("j.smith@abc.edu")
-                    .password(passwordEncoder.encode("123456"))
-                    .firstName("John")
-                    .lastName("Smith")
-                    .role(User.Role.STUDENT)
-                    .enabled(true)
-                    .build();
-            userRepository.save(student);
-            log.info("Default student created: j.smith@abc.edu / 123456");
-        }
+    private void ensureUser(String email, String rawPassword, String firstName, String lastName, User.Role role) {
+        userRepository.findByEmail(email).ifPresentOrElse(
+            existing -> {
+                if (!existing.isEnabled()) {
+                    existing.setEnabled(true);
+                    userRepository.save(existing);
+                    log.info("Re-enabled seed user: {}", email);
+                }
+            },
+            () -> {
+                User user = User.builder()
+                        .email(email)
+                        .password(passwordEncoder.encode(rawPassword))
+                        .firstName(firstName)
+                        .lastName(lastName)
+                        .role(role)
+                        .enabled(true)
+                        .build();
+                userRepository.save(user);
+                log.info("Created seed user: {} / {}", email, rawPassword);
+            }
+        );
     }
 }

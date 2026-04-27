@@ -21,11 +21,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.role = :role AND " +
            "(:firstName IS NULL OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :firstName, '%'))) AND " +
            "(:lastName IS NULL OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :lastName, '%'))) AND " +
-           "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%')))")
+           "(:email IS NULL OR LOWER(u.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
+           "(:enabled IS NULL OR u.enabled = :enabled)")
     List<User> searchByRole(@Param("role") User.Role role,
                             @Param("firstName") String firstName,
                             @Param("lastName") String lastName,
-                            @Param("email") String email);
+                            @Param("email") String email,
+                            @Param("enabled") Boolean enabled);
 
     // UC-15: search students with optional filters (sort applied in service)
     @Query("SELECT u FROM User u " +

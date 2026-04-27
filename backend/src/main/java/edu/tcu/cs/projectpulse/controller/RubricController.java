@@ -36,4 +36,10 @@ public class RubricController {
     public ResponseEntity<RubricDto> getRubric(@PathVariable Long id) {
         return ResponseEntity.ok(rubricService.toDto(rubricService.getRubricById(id)));
     }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<RubricDto> updateRubric(@PathVariable Long id, @Valid @RequestBody RubricDto dto) {
+        return ResponseEntity.ok(rubricService.toDto(rubricService.updateRubric(id, dto)));
+    }
 }

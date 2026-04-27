@@ -299,22 +299,19 @@ async function loadWeeks(teamId) {
   try {
     const teamRes = await getTeam(teamId)
     const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-    const today = new Date()
-    // Business rule: students cannot select FUTURE weeks (BR-2: non-active weeks are allowed)
     weeks.value = weekRes.data
-      .filter(w => new Date(w.startDate) <= today)
       .map(w => ({
         id: w.id,
         startDate: w.startDate,
         active: w.active,
         label: formatWeekLabel(w),
       }))
-      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate)) // most recent first
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
     if (weeks.value.length > 0) {
       selectedWeekId.value = weeks.value[0].id
       await loadWAR()
     }
-  } catch (e) {
+  } catch {
     notify('Failed to load weeks.', 'error')
   } finally {
     loadingWeeks.value = false
@@ -327,7 +324,7 @@ async function loadWAR() {
   try {
     const res = await getWAR(auth.user.id, selectedWeekId.value)
     activities.value = res.data?.activities ?? []
-  } catch (e) {
+  } catch {
     notify('Failed to load activities.', 'error')
     activities.value = []
   } finally {

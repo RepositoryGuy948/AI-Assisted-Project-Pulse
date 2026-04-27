@@ -18,16 +18,24 @@ const vuetify = createVuetify({
     themes: {
       light: {
         colors: {
-          primary: '#4A90D9',
-          secondary: '#5C6BC0',
-          accent: '#7E57C2',
-          error: '#F44336',
-          warning: '#FF9800',
-          info: '#2196F3',
-          success: '#4CAF50',
+          primary:    '#7C3AED',
+          secondary:  '#A855F7',
+          accent:     '#9333EA',
+          error:      '#EF4444',
+          warning:    '#F59E0B',
+          info:       '#8B5CF6',
+          success:    '#10B981',
+          background: '#F5F3FF',
+          surface:    '#FFFFFF',
         },
       },
     },
+  },
+  defaults: {
+    VBtn: { rounded: 'lg' },
+    VTextField: { rounded: 'lg' },
+    VCard: { rounded: 'lg' },
+    VAlert: { rounded: 'lg' },
   },
   icons: {
     defaultSet: 'mdi',
