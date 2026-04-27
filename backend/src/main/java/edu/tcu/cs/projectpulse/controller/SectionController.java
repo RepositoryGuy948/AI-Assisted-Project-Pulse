@@ -147,7 +147,7 @@ public class SectionController {
                 .collect(Collectors.toSet());
 
         // All students in section (those whose team is in this section)
-        List<User> allStudents = userService.searchStudents(null, null, null, null, section.getId());
+        List<User> allStudents = userService.searchStudents(null, null, null, null, section.getId(), null, null);
         List<User> unassignedStudents = allStudents.stream()
                 .filter(s -> !assignedStudentIds.contains(s.getId()))
                 .collect(Collectors.toList());
