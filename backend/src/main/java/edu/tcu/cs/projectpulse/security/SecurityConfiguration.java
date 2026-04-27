@@ -40,6 +40,8 @@ public class SecurityConfiguration {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/register/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/", "/index.html", "/assets/**", "/*.js", "/*.css",
+                                 "/*.ico", "/*.png", "/*.svg", "/*.woff", "/*.woff2").permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

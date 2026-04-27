@@ -39,7 +39,8 @@
         <v-list-item prepend-icon="mdi-school"         title="Students"        to="/admin/students"           rounded="lg" active-color="primary" />
         <v-list-item prepend-icon="mdi-account-tie"    title="Instructors"     to="/admin/instructors"        rounded="lg" active-color="primary" />
         <v-list-item prepend-icon="mdi-clipboard-list" title="Rubrics"         to="/admin/rubrics"            rounded="lg" active-color="primary" />
-        <v-list-item prepend-icon="mdi-email-fast"     title="Invite Students" to="/admin/invite/students"    rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-email-fast"     title="Invite Students"    to="/admin/invite/students"    rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-email-arrow-right" title="Invite Instructors" to="/admin/invite/instructors" rounded="lg" active-color="primary" />
       </v-list>
 
       <template #append>
