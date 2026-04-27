@@ -25,6 +25,7 @@ const routes = [
       { path: 'rubrics', component: () => import('@/views/admin/RubricsView.vue') },
       { path: 'rubrics/new', component: () => import('@/views/admin/RubricFormView.vue') },
       { path: 'rubrics/:id/edit', component: () => import('@/views/admin/RubricFormView.vue') },
+      { path: 'invite/students', component: () => import('@/views/admin/InviteStudents.vue') },
     ],
   },
 
@@ -37,7 +38,7 @@ const routes = [
       { path: '', redirect: '/student/dashboard' },
       { path: 'dashboard', component: () => import('@/views/student/DashboardView.vue') },
       { path: 'account', component: () => import('@/views/student/AccountView.vue') },
-      { path: 'war', component: () => import('@/views/student/WARView.vue') },
+      { path: 'war/:weekId?', component: () => import('@/views/student/WARView.vue') },
       { path: 'peer-evaluation', component: () => import('@/views/student/PeerEvaluationView.vue') },
       { path: 'my-report', component: () => import('@/views/student/MyReportView.vue') },
       { path: 'team-war-report', component: () => import('@/views/student/TeamWARReportView.vue') },

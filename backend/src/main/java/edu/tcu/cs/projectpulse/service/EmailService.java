@@ -17,16 +17,18 @@ public class EmailService {
     @Value("${app.base-url}")
     private String baseUrl;
 
-    public void sendStudentInvitation(String email, String token, String sectionName, String customMessage) {
+    public void sendStudentInvitation(String email, String token, String sectionName,
+                                      String customMessage, String adminName) {
         String link = baseUrl + "/register/student?token=" + token;
-        String body = buildInvitationBody("student", sectionName, link, customMessage);
-        sendEmail(email, "Welcome to Project Pulse - Complete Your Registration", body);
+        String body = buildInvitationBody(adminName, link, customMessage);
+        sendEmail(email, "Welcome to The Peer Evaluation Tool - Complete Your Registration", body);
     }
 
-    public void sendInstructorInvitation(String email, String token, String sectionName, String customMessage) {
+    public void sendInstructorInvitation(String email, String token, String sectionName,
+                                         String customMessage, String adminName) {
         String link = baseUrl + "/register/instructor?token=" + token;
-        String body = buildInvitationBody("instructor", sectionName, link, customMessage);
-        sendEmail(email, "Welcome to Project Pulse - Complete Your Registration", body);
+        String body = buildInvitationBody(adminName, link, customMessage);
+        sendEmail(email, "Welcome to The Peer Evaluation Tool - Complete Your Registration", body);
     }
 
     public void sendEmail(String to, String subject, String body) {
@@ -43,20 +45,16 @@ public class EmailService {
         }
     }
 
-    private String buildInvitationBody(String role, String sectionName, String link, String customMessage) {
+    private String buildInvitationBody(String adminName, String link, String customMessage) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You have been invited to join Project Pulse as a ").append(role);
-        if (sectionName != null) {
-            sb.append(" for section ").append(sectionName);
-        }
-        sb.append(".\n\n");
+        sb.append("Hello,\n\n");
+        sb.append(adminName).append(" has invited you to join The Peer Evaluation Tool.\n\n");
         if (customMessage != null && !customMessage.isBlank()) {
             sb.append(customMessage).append("\n\n");
         }
-        sb.append("Please complete your registration by clicking the link below:\n");
+        sb.append("To complete your registration, please use the link below:\n");
         sb.append(link).append("\n\n");
-        sb.append("This link is for one-time use only.\n\n");
-        sb.append("Best regards,\nProject Pulse Team");
+        sb.append("This link is for one-time use only.");
         return sb.toString();
     }
 }

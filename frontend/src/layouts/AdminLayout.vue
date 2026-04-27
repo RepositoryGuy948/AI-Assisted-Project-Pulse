@@ -31,12 +31,15 @@
         </div>
       </template>
 
+      <v-divider />
+
       <v-list density="compact" nav class="mt-2 px-2">
-        <v-list-item prepend-icon="mdi-view-dashboard" title="Sections"    to="/admin/sections"     rounded="lg" active-color="primary" />
-        <v-list-item prepend-icon="mdi-account-group"  title="Teams"       to="/admin/teams"        rounded="lg" active-color="primary" />
-        <v-list-item prepend-icon="mdi-school"         title="Students"    to="/admin/students"     rounded="lg" active-color="primary" />
-        <v-list-item prepend-icon="mdi-account-tie"    title="Instructors" to="/admin/instructors"  rounded="lg" active-color="primary" />
-        <v-list-item prepend-icon="mdi-clipboard-list" title="Rubrics"     to="/admin/rubrics"      rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-view-dashboard" title="Sections"        to="/admin/sections"           rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-account-group"  title="Teams"           to="/admin/teams"              rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-school"         title="Students"        to="/admin/students"           rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-account-tie"    title="Instructors"     to="/admin/instructors"        rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-clipboard-list" title="Rubrics"         to="/admin/rubrics"            rounded="lg" active-color="primary" />
+        <v-list-item prepend-icon="mdi-email-fast"     title="Invite Students" to="/admin/invite/students"    rounded="lg" active-color="primary" />
       </v-list>
 
       <template #append>

@@ -14,6 +14,5 @@ public class TeamDto {
     private String description;
     private String websiteUrl;
 
-    @NotNull
     private Long sectionId;
 }

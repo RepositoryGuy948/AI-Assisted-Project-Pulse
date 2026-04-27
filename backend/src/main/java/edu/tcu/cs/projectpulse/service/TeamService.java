@@ -54,8 +54,8 @@ public class TeamService {
                 .orElseThrow(() -> new RuntimeException("Team not found: " + id));
     }
 
-    public List<Team> searchTeams(Long sectionId, String sectionName, String teamName) {
-        return teamRepository.searchTeams(sectionId, sectionName, teamName);
+    public List<Team> searchTeams(Long sectionId, String sectionName, String teamName, String instructor) {
+        return teamRepository.searchTeams(sectionId, sectionName, teamName, instructor);
     }
 
     public void deleteTeam(Long id) {

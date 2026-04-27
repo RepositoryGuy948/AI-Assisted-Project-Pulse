@@ -14,8 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -36,31 +39,41 @@ public class UserService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
 
-    public void inviteUsers(Long sectionId, InviteRequest request, User.Role role) {
+    public int inviteUsers(Long sectionId, InviteRequest request, User.Role role) {
         Section section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new RuntimeException("Section not found"));
 
-        String[] emails = request.getEmails().split(";");
-        Arrays.stream(emails)
-              .map(String::trim)
-              .filter(e -> !e.isEmpty())
-              .forEach(email -> {
-                  String token = UUID.randomUUID().toString();
-                  InvitationToken invToken = InvitationToken.builder()
-                          .email(email)
-                          .token(token)
-                          .section(section)
-                          .role(role)
-                          .used(false)
-                          .createdAt(LocalDateTime.now())
-                          .build();
-                  tokenRepository.save(invToken);
-                  if (role == User.Role.STUDENT) {
-                      emailService.sendStudentInvitation(email, token, section.getName(), request.getCustomMessage());
-                  } else {
-                      emailService.sendInstructorInvitation(email, token, section.getName(), request.getCustomMessage());
-                  }
-              });
+        String adminEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User admin = userRepository.findByEmail(adminEmail).orElse(null);
+        String adminName = (admin != null)
+                ? admin.getFirstName() + " " + admin.getLastName()
+                : "An administrator";
+
+        List<String> emails = Arrays.stream(request.getEmails().split(";"))
+                .map(String::trim)
+                .filter(e -> !e.isEmpty())
+                .collect(Collectors.toList());
+
+        for (String email : emails) {
+            String token = UUID.randomUUID().toString();
+            InvitationToken invToken = InvitationToken.builder()
+                    .email(email)
+                    .token(token)
+                    .section(section)
+                    .role(role)
+                    .used(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            tokenRepository.save(invToken);
+            if (role == User.Role.STUDENT) {
+                emailService.sendStudentInvitation(email, token, section.getName(),
+                        request.getCustomMessage(), adminName);
+            } else {
+                emailService.sendInstructorInvitation(email, token, section.getName(),
+                        request.getCustomMessage(), adminName);
+            }
+        }
+        return emails.size();
     }
 
     public User registerUser(RegisterRequest request, User.Role expectedRole) {
@@ -105,8 +118,17 @@ public class UserService {
     }
 
     public List<User> searchStudents(String firstName, String lastName, String email,
-                                     Long teamId, Long sectionId) {
-        return userRepository.searchStudents(firstName, lastName, email, teamId, sectionId);
+                                     Long teamId, Long sectionId,
+                                     String teamName, String sectionName) {
+        // UC-15 sort: section name descending, then last name ascending
+        return userRepository.searchStudents(firstName, lastName, email, teamId, sectionId, teamName, sectionName)
+                .stream()
+                .sorted(Comparator
+                        .comparing((User u) -> u.getTeam() != null && u.getTeam().getSection() != null
+                                ? u.getTeam().getSection().getName() : "",
+                                Comparator.reverseOrder())
+                        .thenComparing(u -> u.getLastName().toLowerCase()))
+                .collect(Collectors.toList());
     }
 
     public List<User> searchInstructors(String firstName, String lastName, String email, Boolean enabled) {
@@ -189,8 +211,11 @@ public class UserService {
     }
 
     public InvitationToken validateToken(String token) {
-        return tokenRepository.findByToken(token)
-                .filter(t -> !t.isUsed())
-                .orElseThrow(() -> new RuntimeException("Invalid or expired token"));
+        InvitationToken inv = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired registration link."));
+        if (inv.isUsed()) {
+            throw new IllegalArgumentException("This registration link has already been used.");
+        }
+        return inv;
     }
 }

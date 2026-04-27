@@ -51,6 +51,7 @@ export const inviteInstructors = (sectionId, data) => api.post(`/sections/${sect
 // Teams
 export const getTeams = (params) => api.get('/teams', { params })
 export const createTeam = (data) => api.post('/teams', data)
+export const createTeamInSection = (sectionId, data) => api.post(`/sections/${sectionId}/teams`, data)
 export const getTeam = (id) => api.get(`/teams/${id}`)
 export const updateTeam = (id, data) => api.put(`/teams/${id}`, data)
 export const deleteTeam = (id) => api.delete(`/teams/${id}`)

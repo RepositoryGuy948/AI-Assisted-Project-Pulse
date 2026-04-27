@@ -85,6 +85,15 @@ public class WARService {
         return warRepository.findByStudentAndWeeks(studentId, weekIds);
     }
 
+    // Cascade delete helpers (used by Member 3 when removing a student or team)
+    public void deleteAllWarsByStudent(Long studentId) {
+        warRepository.deleteAll(warRepository.findByStudentId(studentId));
+    }
+
+    public void deleteAllWarsByTeam(Long teamId) {
+        warRepository.deleteAll(warRepository.findByTeamId(teamId));
+    }
+
     public ActivityDto toDto(Activity a) {
         ActivityDto dto = new ActivityDto();
         dto.setId(a.getId());
