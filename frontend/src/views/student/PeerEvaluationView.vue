@@ -1,33 +1,39 @@
 <template>
   <div>
-    <div :style="{ opacity: loading ? 0 : 1, transition: 'opacity 0.3s ease' }">
     <h1 class="text-h5 font-weight-bold mb-2">Peer Evaluation</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">
-      Evaluate all your teammates for the previous week. All fields are required.
+      Evaluate all your teammates for the previous week. All scores are required (1–10).
     </p>
-    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
 
-    <v-alert v-if="!loadError && !activeWeek" type="info" class="mb-4">
-      No active week available for peer evaluation.
+    <!-- Outside-window states -->
+    <v-alert v-if="!teamId" type="warning" class="mb-4">
+      You must be assigned to a team before you can submit peer evaluations.
     </v-alert>
 
-    <div v-if="activeWeek">
+    <v-alert v-else-if="windowState === 'no-weeks'" type="info" class="mb-4">
+      No completed weeks available yet. Peer evaluations open after a week ends.
+    </v-alert>
+
+    <v-alert v-else-if="windowState === 'closed'" type="warning" class="mb-4">
+      The submission window is closed. You can only submit peer evaluations for the most recently
+      completed week, and only before the next week ends.
+    </v-alert>
+
+    <div v-if="activeWeek && windowState === 'open'">
       <v-chip color="primary" class="mb-4">
-        Week of {{ formatDate(activeWeek.startDate) }}
+        Evaluating week of {{ formatDate(activeWeek.startDate) }}
       </v-chip>
 
       <v-alert v-if="error" type="error" class="mb-4" density="compact">{{ error }}</v-alert>
-      <v-alert v-if="success" type="success" class="mb-4" density="compact">Evaluations submitted!</v-alert>
-
-      <v-alert v-if="teammates.length === 0" type="info" density="compact" class="mb-4">
-        No teammates found. Make sure you are assigned to a team with other members.
+      <v-alert v-if="success" type="success" class="mb-4" density="compact">
+        Evaluations submitted successfully!
       </v-alert>
 
-      <template v-for="teammate in teammates" :key="teammate.id">
-      <v-card v-if="evaluations[teammate.id]" class="mb-4">
+      <v-card v-for="teammate in teammates" :key="teammate.id" class="mb-4">
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-account</v-icon>
           {{ teammate.firstName }} {{ teammate.lastName }}
+          <v-chip v-if="teammate.id === auth.user.id" size="small" class="ml-2" color="secondary">You</v-chip>
           <v-chip v-if="submittedFor.includes(teammate.id)" size="small" class="ml-2" color="success">Submitted</v-chip>
         </v-card-title>
         <v-card-text>
@@ -40,7 +46,7 @@
               <v-col cols="9">
                 <v-slider
                   v-model="evaluations[teammate.id].scores[c.id]"
-                  :min="0"
+                  :min="1"
                   :max="c.maxScore"
                   step="1"
                   thumb-label
@@ -52,120 +58,172 @@
           </div>
           <v-textarea
             v-model="evaluations[teammate.id].publicComment"
-            label="Public Comment (visible to teammate)"
+            label="Public Comment (visible to teammate — optional)"
             variant="outlined"
             rows="2"
             class="mt-3"
           />
           <v-textarea
             v-model="evaluations[teammate.id].privateComment"
-            label="Private Comment (instructor only)"
+            label="Private Comment (instructor only — optional)"
             variant="outlined"
             rows="2"
             class="mt-2"
           />
         </v-card-text>
       </v-card>
-      </template>
 
       <v-btn
         v-if="teammates.length > 0"
         color="primary"
         size="large"
-        :loading="submitting"
-        @click="submitAll"
+        @click="openReview"
       >
-        Submit All Evaluations
+        Review & Submit
       </v-btn>
     </div>
-    </div>
+
+    <!-- Confirmation Review Dialog -->
+    <v-dialog v-model="reviewDialog" max-width="680" scrollable>
+      <v-card>
+        <v-card-title>Review Evaluations — Week of {{ activeWeek ? formatDate(activeWeek.startDate) : '' }}</v-card-title>
+        <v-divider />
+        <v-card-text style="max-height: 60vh; overflow-y: auto;">
+          <v-card
+            v-for="teammate in teammates"
+            :key="teammate.id"
+            class="mb-4"
+            variant="outlined"
+          >
+            <v-card-title class="text-body-1">
+              {{ teammate.firstName }} {{ teammate.lastName }}
+              <v-chip v-if="teammate.id === auth.user.id" size="x-small" class="ml-2">You</v-chip>
+            </v-card-title>
+            <v-card-text class="pb-2">
+              <v-row dense v-for="c in criteria" :key="c.id">
+                <v-col cols="6" class="text-body-2">{{ c.name }}</v-col>
+                <v-col cols="6">
+                  <v-chip size="small" color="primary">
+                    {{ evaluations[teammate.id]?.scores[c.id] }} / {{ c.maxScore }}
+                  </v-chip>
+                </v-col>
+              </v-row>
+              <div v-if="evaluations[teammate.id]?.publicComment" class="mt-2 text-body-2">
+                <strong>Public:</strong> {{ evaluations[teammate.id].publicComment }}
+              </div>
+              <div v-if="evaluations[teammate.id]?.privateComment" class="mt-1 text-body-2">
+                <strong>Private (instructor only):</strong> {{ evaluations[teammate.id].privateComment }}
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-btn @click="reviewDialog = false">Cancel</v-btn>
+          <v-spacer />
+          <v-btn color="primary" :loading="submitting" @click="submitAll">Confirm & Submit</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { getMe, getTeam, getActiveWeeks, getSection, submitPeerEvaluation, getSubmittedEvaluations } from '@/api'
+import { useAuthStore } from '@/stores/auth'
+import { getMe, getTeam, getActiveWeeks, getRubric, getSection, submitPeerEvaluation, getSubmittedEvaluations } from '@/api'
 
+const auth = useAuthStore()
 const teammates = ref([])
 const criteria = ref([])
 const activeWeek = ref(null)
-const currentUser = ref(null)
 const evaluations = reactive({})
 const submittedFor = ref([])
 const submitting = ref(false)
-const loading = ref(true)
-const loadError = ref('')
+const reviewDialog = ref(false)
 const error = ref('')
 const success = ref(false)
+const teamId = ref(null)
+const windowState = ref('no-weeks') // 'no-weeks' | 'open' | 'closed'
 
 onMounted(async () => {
-  try {
-    const me = await getMe()
-    currentUser.value = me.data
+  const me = await getMe()
+  if (!me.data.teamId) return
+  teamId.value = me.data.teamId
 
-    if (!me.data.teamId || !me.data.sectionId) return
+  const [teamRes] = await Promise.all([getTeam(me.data.teamId)])
+  const team = teamRes.data
 
-    const teamRes = await getTeam(me.data.teamId)
-    teammates.value = teamRes.data.students.filter(s => s.id !== me.data.id)
+  const weekRes = await getActiveWeeks(team.sectionId)
+  const now = new Date()
+  const allActive = weekRes.data.filter(w => w.active)
+  const pastWeeks = allActive.filter(w => new Date(w.endDate) < now)
+  const currentWeek = allActive.find(w => new Date(w.startDate) <= now && new Date(w.endDate) >= now)
 
-    const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-    const weeks = weekRes.data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-    const today = new Date()
-    const current = weeks.find(w => new Date(w.startDate) <= today && new Date(w.endDate) >= today)
-    const mostRecentPast = weeks.find(w => new Date(w.endDate) < today)
-    activeWeek.value = current || mostRecentPast || weeks[0] || null
-
-    if (!activeWeek.value) return
-
-    try {
-      const sectionRes = await getSection(me.data.sectionId)
-      criteria.value = sectionRes.data.rubricCriteria || []
-    } catch {
-      criteria.value = []
-    }
-
-    try {
-      const subRes = await getSubmittedEvaluations(me.data.id, activeWeek.value.id)
-      submittedFor.value = subRes.data.map(e => e.evaluateeId)
-    } catch { /* non-fatal */ }
-
-    teammates.value.forEach(tm => {
-      const scores = {}
-      criteria.value.forEach(c => { scores[c.id] = 0 })
-      evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
-    })
-
-  } catch (e) {
-    console.error('[PeerEval]', e)
-    loadError.value = 'Failed to load peer evaluation data.'
-  } finally {
-    loading.value = false
+  if (pastWeeks.length === 0) {
+    windowState.value = 'no-weeks'
+    return
   }
+
+  // Submission window is only open while a current week is running
+  if (!currentWeek) {
+    windowState.value = 'closed'
+    return
+  }
+
+  const previousWeek = pastWeeks[pastWeeks.length - 1]
+  activeWeek.value = previousWeek
+  windowState.value = 'open'
+
+  teammates.value = team.students
+
+  const sectionRes = await getSection(team.sectionId)
+  if (sectionRes.data.rubricId) {
+    const rubricRes = await getRubric(sectionRes.data.rubricId)
+    criteria.value = rubricRes.data.criteria
+  }
+
+  const subRes = await getSubmittedEvaluations(auth.user.id, previousWeek.id)
+  submittedFor.value = subRes.data.map(e => e.evaluateeId)
+
+  teammates.value.forEach(tm => {
+    const scores = {}
+    criteria.value.forEach(c => { scores[c.id] = 1 })
+    evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
+  })
 })
+
+function openReview() {
+  error.value = ''
+  reviewDialog.value = true
+}
 
 async function submitAll() {
   error.value = ''
   success.value = false
   submitting.value = true
   try {
+    const me = await getMe()
     for (const teammate of teammates.value) {
       const evalData = evaluations[teammate.id]
-      await submitPeerEvaluation(currentUser.value.id, {
+      await submitPeerEvaluation(auth.user.id, {
         evaluateeId: teammate.id,
         weekId: activeWeek.value.id,
-        teamId: currentUser.value.teamId,
+        teamId: me.data.teamId,
         publicComment: evalData.publicComment,
         privateComment: evalData.privateComment,
         scores: criteria.value.map(c => ({
           criterionId: c.id,
-          score: evalData.scores[c.id] || 0,
+          score: evalData.scores[c.id] || 1,
         })),
       })
     }
+    reviewDialog.value = false
     success.value = true
     submittedFor.value = teammates.value.map(t => t.id)
   } catch (e) {
     error.value = e.response?.data?.message || 'Submission failed.'
+    reviewDialog.value = false
   } finally {
     submitting.value = false
   }
