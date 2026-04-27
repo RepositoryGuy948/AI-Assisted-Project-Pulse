@@ -51,6 +51,7 @@ export const inviteInstructors = (sectionId, data) => api.post(`/sections/${sect
 // Teams
 export const getTeams = (params) => api.get('/teams', { params })
 export const createTeam = (data) => api.post('/teams', data)
+export const createTeamInSection = (sectionId, data) => api.post(`/sections/${sectionId}/teams`, data)
 export const getTeam = (id) => api.get(`/teams/${id}`)
 export const updateTeam = (id, data) => api.put(`/teams/${id}`, data)
 export const deleteTeam = (id) => api.delete(`/teams/${id}`)
@@ -63,6 +64,8 @@ export const removeInstructorFromTeam = (teamId, instructorId) => api.delete(`/t
 export const getStudents = (params) => api.get('/students', { params })
 export const getStudent = (id) => api.get(`/students/${id}`)
 export const deleteStudent = (id) => api.delete(`/students/${id}`)
+export const deactivateStudent = (id) => api.put(`/students/${id}/deactivate`)
+export const reactivateStudent = (id) => api.put(`/students/${id}/reactivate`)
 
 // Instructors
 export const getInstructors = (params) => api.get('/instructors', { params })
@@ -74,6 +77,7 @@ export const reactivateInstructor = (id) => api.put(`/instructors/${id}/reactiva
 export const getRubrics = () => api.get('/rubrics')
 export const getRubric = (id) => api.get(`/rubrics/${id}`)
 export const createRubric = (data) => api.post('/rubrics', data)
+export const updateRubric = (id, data) => api.put(`/rubrics/${id}`, data)
 
 // WARs
 export const getStudentWARs = (studentId) => api.get(`/students/${studentId}/wars`)

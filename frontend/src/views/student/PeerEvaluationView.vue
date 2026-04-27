@@ -1,11 +1,13 @@
 <template>
   <div>
+    <div :style="{ opacity: loading ? 0 : 1, transition: 'opacity 0.3s ease' }">
     <h1 class="text-h5 font-weight-bold mb-2">Peer Evaluation</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">
       Evaluate all your teammates for the previous week. All fields are required.
     </p>
+    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
 
-    <v-alert v-if="!activeWeek" type="info" class="mb-4">
+    <v-alert v-if="!loadError && !activeWeek" type="info" class="mb-4">
       No active week available for peer evaluation.
     </v-alert>
 
@@ -17,11 +19,15 @@
       <v-alert v-if="error" type="error" class="mb-4" density="compact">{{ error }}</v-alert>
       <v-alert v-if="success" type="success" class="mb-4" density="compact">Evaluations submitted!</v-alert>
 
-      <v-card v-for="teammate in teammates" :key="teammate.id" class="mb-4">
+      <v-alert v-if="teammates.length === 0" type="info" density="compact" class="mb-4">
+        No teammates found. Make sure you are assigned to a team with other members.
+      </v-alert>
+
+      <template v-for="teammate in teammates" :key="teammate.id">
+      <v-card v-if="evaluations[teammate.id]" class="mb-4">
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-account</v-icon>
           {{ teammate.firstName }} {{ teammate.lastName }}
-          <v-chip v-if="teammate.id === auth.user.id" size="small" class="ml-2" color="secondary">You</v-chip>
           <v-chip v-if="submittedFor.includes(teammate.id)" size="small" class="ml-2" color="success">Submitted</v-chip>
         </v-card-title>
         <v-card-text>
@@ -60,6 +66,7 @@
           />
         </v-card-text>
       </v-card>
+      </template>
 
       <v-btn
         v-if="teammates.length > 0"
@@ -71,62 +78,69 @@
         Submit All Evaluations
       </v-btn>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { getMe, getTeam, getActiveWeeks, getRubric, getSection, submitPeerEvaluation, getSubmittedEvaluations } from '@/api'
+import { getMe, getTeam, getActiveWeeks, getSection, submitPeerEvaluation, getSubmittedEvaluations } from '@/api'
 
-const auth = useAuthStore()
 const teammates = ref([])
 const criteria = ref([])
 const activeWeek = ref(null)
+const currentUser = ref(null)
 const evaluations = reactive({})
 const submittedFor = ref([])
 const submitting = ref(false)
+const loading = ref(true)
+const loadError = ref('')
 const error = ref('')
 const success = ref(false)
 
 onMounted(async () => {
-  const me = await getMe()
-  if (!me.data.teamId) return
+  try {
+    const me = await getMe()
+    currentUser.value = me.data
 
-  const [teamRes] = await Promise.all([getTeam(me.data.teamId)])
-  const team = teamRes.data
+    if (!me.data.teamId || !me.data.sectionId) return
 
-  // Get previous active week
-  const weekRes = await getActiveWeeks(team.sectionId)
-  const now = new Date()
-  const activeWeeks = weekRes.data.filter(w => w.active && new Date(w.endDate) < now)
-  if (activeWeeks.length === 0) return
-  activeWeek.value = activeWeeks[activeWeeks.length - 1]
+    const teamRes = await getTeam(me.data.teamId)
+    teammates.value = teamRes.data.students.filter(s => s.id !== me.data.id)
 
-  // Get team members
-  teammates.value = team.students
+    const weekRes = await getActiveWeeks(teamRes.data.sectionId)
+    const weeks = weekRes.data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    const today = new Date()
+    const current = weeks.find(w => new Date(w.startDate) <= today && new Date(w.endDate) >= today)
+    const mostRecentPast = weeks.find(w => new Date(w.endDate) < today)
+    activeWeek.value = current || mostRecentPast || weeks[0] || null
 
-  // Get rubric criteria
-  const sectionRes = await getSection(team.sectionId)
-  if (sectionRes.data.rubricId) {
-    const rubricRes = await getRubric(sectionRes.data.rubricId)
-    criteria.value = rubricRes.data.criteria
-  }
+    if (!activeWeek.value) return
 
-  // Check already submitted
-  const subRes = await getSubmittedEvaluations(auth.user.id, activeWeek.value.id)
-  submittedFor.value = subRes.data.map(e => e.evaluateeId)
-
-  // Initialize evaluation forms
-  teammates.value.forEach(tm => {
-    const scores = {}
-    criteria.value.forEach(c => { scores[c.id] = 0 })
-    evaluations[tm.id] = {
-      scores,
-      publicComment: '',
-      privateComment: '',
+    try {
+      const sectionRes = await getSection(me.data.sectionId)
+      criteria.value = sectionRes.data.rubricCriteria || []
+    } catch {
+      criteria.value = []
     }
-  })
+
+    try {
+      const subRes = await getSubmittedEvaluations(me.data.id, activeWeek.value.id)
+      submittedFor.value = subRes.data.map(e => e.evaluateeId)
+    } catch { /* non-fatal */ }
+
+    teammates.value.forEach(tm => {
+      const scores = {}
+      criteria.value.forEach(c => { scores[c.id] = 0 })
+      evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
+    })
+
+  } catch (e) {
+    console.error('[PeerEval]', e)
+    loadError.value = 'Failed to load peer evaluation data.'
+  } finally {
+    loading.value = false
+  }
 })
 
 async function submitAll() {
@@ -134,13 +148,12 @@ async function submitAll() {
   success.value = false
   submitting.value = true
   try {
-    const me = await getMe()
     for (const teammate of teammates.value) {
       const evalData = evaluations[teammate.id]
-      await submitPeerEvaluation(auth.user.id, {
+      await submitPeerEvaluation(currentUser.value.id, {
         evaluateeId: teammate.id,
         weekId: activeWeek.value.id,
-        teamId: me.data.teamId,
+        teamId: currentUser.value.teamId,
         publicComment: evalData.publicComment,
         privateComment: evalData.privateComment,
         scores: criteria.value.map(c => ({

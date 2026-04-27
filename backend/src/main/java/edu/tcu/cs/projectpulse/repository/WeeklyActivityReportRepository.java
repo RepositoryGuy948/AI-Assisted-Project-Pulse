@@ -25,4 +25,7 @@ public interface WeeklyActivityReportRepository extends JpaRepository<WeeklyActi
            "w.activeWeek.id IN :weekIds ORDER BY w.activeWeek.startDate ASC")
     List<WeeklyActivityReport> findByStudentAndWeeks(@Param("studentId") Long studentId,
                                                      @Param("weekIds") List<Long> weekIds);
+
+    @Query("SELECT w FROM WeeklyActivityReport w WHERE w.student.team.id = :teamId")
+    List<WeeklyActivityReport> findByTeamId(@Param("teamId") Long teamId);
 }

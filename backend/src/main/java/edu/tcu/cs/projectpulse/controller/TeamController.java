@@ -23,13 +23,15 @@ public class TeamController {
     private final TeamService teamService;
     private final UserService userService;
 
+    // UC-7: find teams with optional filters
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
     public ResponseEntity<List<Map<String, Object>>> getTeams(
             @RequestParam(required = false) Long sectionId,
             @RequestParam(required = false) String sectionName,
-            @RequestParam(required = false) String teamName) {
-        return ResponseEntity.ok(teamService.searchTeams(sectionId, sectionName, teamName)
+            @RequestParam(required = false) String teamName,
+            @RequestParam(required = false) String instructor) {
+        return ResponseEntity.ok(teamService.searchTeams(sectionId, sectionName, teamName, instructor)
                 .stream().map(this::toDetailMap).collect(Collectors.toList()));
     }
 
