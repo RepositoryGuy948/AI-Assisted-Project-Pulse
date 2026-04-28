@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -61,7 +62,13 @@ public class TeamService {
     }
 
     public List<Team> searchTeams(Long sectionId, String sectionName, String teamName, String instructor) {
-        return teamRepository.searchTeams(sectionId, sectionName, teamName, instructor);
+        return teamRepository.searchTeams(sectionId, sectionName, teamName, instructor)
+                .stream()
+                .sorted(Comparator
+                        .comparing((Team t) -> t.getSection() != null ? t.getSection().getName() : "",
+                                Comparator.reverseOrder())
+                        .thenComparing(t -> t.getName().toLowerCase()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public void deleteTeam(Long id) {
