@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,6 +31,20 @@ public class PeerEvaluationService {
                 .orElseThrow(() -> new RuntimeException("Week not found"));
         Team team = teamRepository.findById(dto.getTeamId())
                 .orElseThrow(() -> new RuntimeException("Team not found"));
+
+        // UC-28: week must be in the past
+        if (!week.getEndDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Peer evaluations can only be submitted for completed weeks.");
+        }
+
+        // UC-28: validate scores are integers 1-10
+        if (dto.getScores() != null) {
+            for (PeerEvaluationDto.ScoreDto s : dto.getScores()) {
+                if (s.getScore() < 1 || s.getScore() > 10) {
+                    throw new IllegalArgumentException("Each score must be between 1 and 10.");
+                }
+            }
+        }
 
         // Check for existing evaluation (upsert)
         PeerEvaluation eval = peerEvalRepository

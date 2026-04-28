@@ -44,14 +44,52 @@
         :headers="headers"
         :items="report"
         item-value="weekId"
+        show-expand
+        expand-on-click
       >
         <template #item.grade="{ item }">
-          <span class="font-weight-bold">{{ formatGrade(item) }}</span>
+          <v-chip v-if="item.noSubmission" size="small" color="warning" variant="tonal">No Submissions</v-chip>
+          <span v-else class="font-weight-bold">{{ formatGrade(item) }}</span>
         </template>
         <template #item.evaluations="{ item }">
-          <v-btn size="small" variant="text" color="primary" @click="showDetails(item)">
-            {{ item.evaluations.length }} evaluation(s)
-          </v-btn>
+          <span v-if="item.noSubmission" class="text-medium-emphasis">—</span>
+          <span v-else>{{ item.evaluations.length }} evaluator(s)</span>
+        </template>
+        <template #expanded-row="{ item, columns }">
+          <tr>
+            <td :colspan="columns.length + 1" class="pa-4 bg-grey-lighten-5">
+              <div v-if="item.noSubmission" class="text-medium-emphasis">
+                No peer evaluations were received for this week.
+              </div>
+              <div v-else>
+                <v-card
+                  v-for="ev in item.evaluations"
+                  :key="ev.id"
+                  class="mb-3"
+                  variant="outlined"
+                >
+                  <v-card-title class="text-body-1 pb-1">
+                    From: {{ ev.evaluatorName }}
+                    <v-chip size="x-small" class="ml-2" color="primary">Total: {{ ev.totalScore }}</v-chip>
+                  </v-card-title>
+                  <v-card-text class="pt-1">
+                    <v-row dense>
+                      <v-col v-for="s in ev.scores" :key="s.criterionId" cols="6">
+                        <span class="text-body-2 font-weight-medium">{{ s.criterionName }}:</span>
+                        <span class="text-body-2 ml-1">{{ s.score }}</span>
+                      </v-col>
+                    </v-row>
+                    <div v-if="ev.publicComment" class="mt-2">
+                      <strong>Public:</strong> {{ ev.publicComment }}
+                    </div>
+                    <div v-if="ev.privateComment" class="mt-1">
+                      <strong>Private:</strong> {{ ev.privateComment }}
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </div>
+            </td>
+          </tr>
         </template>
       </v-data-table>
     </v-card>
@@ -59,54 +97,6 @@
     <v-alert v-if="report.length === 0 && loaded" type="info">
       No peer evaluation data for selected period.
     </v-alert>
-
-    <!-- Evaluation Details Dialog -->
-    <v-dialog v-model="detailDialog" max-width="750" scrollable>
-      <v-card v-if="selectedItem">
-        <v-card-title class="text-h6">
-          Details — Week of {{ selectedItem.weekStartDate }}
-          <span class="ml-4 text-body-1 text-medium-emphasis">Grade: {{ formatGrade(selectedItem) }}</span>
-        </v-card-title>
-        <v-card-text>
-          <v-card
-            v-for="ev in selectedItem.evaluations"
-            :key="ev.id"
-            class="mb-3"
-            variant="outlined"
-          >
-            <v-card-title class="text-body-1 pb-1">
-              From: {{ ev.evaluatorName }}
-              <v-chip size="x-small" class="ml-2" color="primary">Total: {{ ev.totalScore }}</v-chip>
-            </v-card-title>
-            <v-card-text class="pt-1">
-              <v-row dense>
-                <v-col
-                  v-for="s in ev.scores"
-                  :key="s.criterionId"
-                  cols="6"
-                >
-                  <span class="text-body-2 font-weight-medium">{{ s.criterionName }}:</span>
-                  <span class="text-body-2 ml-1">{{ s.score }}</span>
-                </v-col>
-              </v-row>
-              <div v-if="ev.publicComment" class="mt-2">
-                <strong>Public:</strong> {{ ev.publicComment }}
-              </div>
-              <div v-if="ev.privateComment" class="mt-1">
-                <strong>Private:</strong> {{ ev.privateComment }}
-              </div>
-            </v-card-text>
-          </v-card>
-          <v-alert v-if="selectedItem.evaluations.length === 0" type="info">
-            No evaluations received this week.
-          </v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="detailDialog = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
@@ -124,8 +114,6 @@ const loading = ref(false)
 const loadingWeeks = ref(true)
 const loaded = ref(false)
 const studentName = ref('')
-const detailDialog = ref(false)
-const selectedItem = ref(null)
 
 const headers = [
   { title: 'Week', key: 'weekStartDate' },
@@ -181,11 +169,6 @@ async function loadReport() {
   } finally {
     loading.value = false
   }
-}
-
-function showDetails(item) {
-  selectedItem.value = item
-  detailDialog.value = true
 }
 
 function formatGrade(item) {

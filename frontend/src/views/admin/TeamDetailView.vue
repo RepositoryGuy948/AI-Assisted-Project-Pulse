@@ -44,7 +44,7 @@
             >
               <template #append>
                 <v-btn icon="mdi-account-minus" variant="text" size="small" color="error"
-                  @click.prevent="removeStudent(s.id)" />
+                  @click.prevent="promptRemoveStudent(s)" />
               </template>
             </v-list-item>
             <v-list-item v-if="!team.students?.length">
@@ -70,7 +70,7 @@
             >
               <template #append>
                 <v-btn icon="mdi-account-minus" variant="text" size="small" color="error"
-                  @click="removeInstructor(i.id)" />
+                  @click="promptRemoveInstructor(i)" />
               </template>
             </v-list-item>
             <v-list-item v-if="!team.instructors?.length">
@@ -84,7 +84,7 @@
       </v-col>
     </v-row>
 
-    <!-- Edit Team Dialog (UC-10) -->
+    <!-- Edit Team Dialog -->
     <v-dialog v-model="editDialog" max-width="520" @after-leave="editFormRef?.resetValidation()">
       <v-card>
         <v-card-title class="pa-4 pb-0">Edit Team</v-card-title>
@@ -125,12 +125,16 @@
       </v-card>
     </v-dialog>
 
-    <!-- Assign Students Dialog -->
+    <!-- Assign Students — Step 1: Select -->
     <v-dialog v-model="assignStudentsDialog" max-width="500">
       <v-card>
-        <v-card-title>Assign Students</v-card-title>
+        <v-card-title>Assign Students — Select</v-card-title>
         <v-card-text>
+          <p v-if="availableStudents.length === 0" class="text-medium-emphasis">
+            No unassigned students available in this section.
+          </p>
           <v-select
+            v-else
             v-model="selectedStudents"
             :items="availableStudents"
             :item-title="s => `${s.firstName} ${s.lastName} (${s.email})`"
@@ -144,17 +148,48 @@
         <v-card-actions>
           <v-spacer />
           <v-btn @click="assignStudentsDialog = false">Cancel</v-btn>
-          <v-btn color="primary" :loading="assigning" @click="doAssignStudents">Assign</v-btn>
+          <v-btn color="primary" :disabled="!selectedStudents.length" @click="reviewAssignStudents">
+            Review →
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Assign Instructors Dialog -->
+    <!-- Assign Students — Step 2: Confirm -->
+    <v-dialog v-model="confirmStudentsDialog" max-width="500">
+      <v-card>
+        <v-card-title>Assign Students — Confirm</v-card-title>
+        <v-card-text>
+          <p class="mb-3">Assign the following students to <strong>{{ team.name }}</strong>?</p>
+          <v-list density="compact">
+            <v-list-item
+              v-for="s in studentsToAssign"
+              :key="s.id"
+              :title="`${s.firstName} ${s.lastName}`"
+              :subtitle="s.email"
+              prepend-icon="mdi-account"
+            />
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn @click="backToSelectStudents">← Back</v-btn>
+          <v-spacer />
+          <v-btn @click="confirmStudentsDialog = false">Cancel</v-btn>
+          <v-btn color="primary" :loading="assigning" @click="doAssignStudents">Confirm & Assign</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Assign Instructors — Step 1: Select -->
     <v-dialog v-model="assignInstructorsDialog" max-width="500">
       <v-card>
-        <v-card-title>Assign Instructors</v-card-title>
+        <v-card-title>Assign Instructors — Select</v-card-title>
         <v-card-text>
+          <p v-if="availableInstructors.length === 0" class="text-medium-emphasis">
+            No available instructors to assign.
+          </p>
           <v-select
+            v-else
             v-model="selectedInstructors"
             :items="availableInstructors"
             :item-title="i => `${i.firstName} ${i.lastName} (${i.email})`"
@@ -168,21 +203,92 @@
         <v-card-actions>
           <v-spacer />
           <v-btn @click="assignInstructorsDialog = false">Cancel</v-btn>
-          <v-btn color="secondary" :loading="assigning" @click="doAssignInstructors">Assign</v-btn>
+          <v-btn color="secondary" :disabled="!selectedInstructors.length" @click="reviewAssignInstructors">
+            Review →
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Assign Instructors — Step 2: Confirm -->
+    <v-dialog v-model="confirmInstructorsDialog" max-width="500">
+      <v-card>
+        <v-card-title>Assign Instructors — Confirm</v-card-title>
+        <v-card-text>
+          <p class="mb-3">Assign the following instructors to <strong>{{ team.name }}</strong>?</p>
+          <v-list density="compact">
+            <v-list-item
+              v-for="i in instructorsToAssign"
+              :key="i.id"
+              :title="`${i.firstName} ${i.lastName}`"
+              :subtitle="i.email"
+              prepend-icon="mdi-account-tie"
+            />
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn @click="backToSelectInstructors">← Back</v-btn>
+          <v-spacer />
+          <v-btn @click="confirmInstructorsDialog = false">Cancel</v-btn>
+          <v-btn color="secondary" :loading="assigning" @click="doAssignInstructors">Confirm & Assign</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Remove Student Confirmation -->
+    <v-dialog v-model="removeStudentDialog" max-width="420">
+      <v-card>
+        <v-card-title>Remove Student from Team</v-card-title>
+        <v-card-text>
+          Remove <strong>{{ studentToRemove?.firstName }} {{ studentToRemove?.lastName }}</strong> from
+          <strong>{{ team.name }}</strong>?
+          Their WARs and peer evaluations will be kept.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="removeStudentDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="removing" @click="doRemoveStudent">Remove</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Remove Instructor Confirmation -->
+    <v-dialog v-model="removeInstructorDialog" max-width="420">
+      <v-card>
+        <v-card-title>Remove Instructor from Team</v-card-title>
+        <v-card-text>
+          Remove <strong>{{ instructorToRemove?.firstName }} {{ instructorToRemove?.lastName }}</strong> from
+          <strong>{{ team.name }}</strong>?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="removeInstructorDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="removing" @click="doRemoveInstructor">Remove</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Delete Team Dialog -->
-    <v-dialog v-model="deleteDialog" max-width="450">
+    <v-dialog v-model="deleteDialog" max-width="480">
       <v-card>
         <v-card-title class="text-error">Delete Team</v-card-title>
         <v-card-text>
           <v-alert type="warning" density="compact" class="mb-3">
-            This will permanently delete the team and all associated WARs and peer evaluations.
-            This action cannot be undone.
+            This action is <strong>permanent and cannot be undone</strong>.
           </v-alert>
-          <p>Are you sure you want to delete <strong>{{ team.name }}</strong>?</p>
+          <p class="mb-2">Deleting <strong>{{ team.name }}</strong> will permanently remove:</p>
+          <v-list density="compact" class="mb-2">
+            <v-list-item prepend-icon="mdi-account-group">
+              All <strong>{{ team.students?.length || 0 }} student(s)</strong> will be unassigned from the team
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-clipboard-text">
+              All <strong>Weekly Activity Reports</strong> submitted by team students
+            </v-list-item>
+            <v-list-item prepend-icon="mdi-star-circle">
+              All <strong>peer evaluations</strong> associated with the team
+            </v-list-item>
+          </v-list>
+          <p>All students and instructors will be notified by email.</p>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -204,7 +310,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getTeam, updateTeam, deleteTeam,
@@ -224,16 +330,32 @@ const editForm = ref({ name: '', description: '', websiteUrl: '' })
 const saving = ref(false)
 
 const assignStudentsDialog = ref(false)
+const confirmStudentsDialog = ref(false)
 const assignInstructorsDialog = ref(false)
+const confirmInstructorsDialog = ref(false)
 const deleteDialog = ref(false)
+const removeStudentDialog = ref(false)
+const removeInstructorDialog = ref(false)
+
 const selectedStudents = ref([])
 const selectedInstructors = ref([])
 const availableStudents = ref([])
 const availableInstructors = ref([])
+const studentToRemove = ref(null)
+const instructorToRemove = ref(null)
+
 const assigning = ref(false)
+const removing = ref(false)
 const deleting = ref(false)
 
 const snackbar = ref({ show: false, message: '', color: 'success' })
+
+const studentsToAssign = computed(() =>
+  availableStudents.value.filter(s => selectedStudents.value.includes(s.id))
+)
+const instructorsToAssign = computed(() =>
+  availableInstructors.value.filter(i => selectedInstructors.value.includes(i.id))
+)
 
 onMounted(loadTeam)
 
@@ -246,7 +368,6 @@ async function loadTeam() {
   }
 }
 
-// UC-10: open edit dialog pre-filled with current values
 function openEditDialog() {
   editForm.value = {
     name: team.value.name,
@@ -264,11 +385,10 @@ async function saveEdit() {
   try {
     await updateTeam(team.value.id, { ...editForm.value, sectionId: team.value.sectionId })
     editDialog.value = false
-    notify(`Team "${editForm.value.name}" updated successfully.`, 'success')
+    notify(`Team "${editForm.value.name}" updated successfully.`)
     await loadTeam()
   } catch (err) {
-    const msg = err.response?.data?.message || 'Failed to update team.'
-    notify(msg, 'error')
+    notify(err.response?.data?.message || 'Failed to update team.', 'error')
   } finally {
     saving.value = false
   }
@@ -277,9 +397,34 @@ async function saveEdit() {
 async function openAssignStudents() {
   const res = await getStudents({ sectionId: team.value.sectionId })
   const currentIds = new Set(team.value.students.map(s => s.id))
-  availableStudents.value = res.data.filter(s => !currentIds.has(s.id))
+  // UC-12: only show students not already on any team
+  availableStudents.value = res.data.filter(s => !currentIds.has(s.id) && !s.teamId)
   selectedStudents.value = []
   assignStudentsDialog.value = true
+}
+
+function reviewAssignStudents() {
+  assignStudentsDialog.value = false
+  confirmStudentsDialog.value = true
+}
+
+function backToSelectStudents() {
+  confirmStudentsDialog.value = false
+  assignStudentsDialog.value = true
+}
+
+async function doAssignStudents() {
+  assigning.value = true
+  try {
+    await assignStudents(team.value.id, selectedStudents.value)
+    confirmStudentsDialog.value = false
+    notify('Students assigned successfully.')
+    await loadTeam()
+  } catch (err) {
+    notify(err.response?.data?.message || 'Failed to assign students.', 'error')
+  } finally {
+    assigning.value = false
+  }
 }
 
 async function openAssignInstructors() {
@@ -290,47 +435,65 @@ async function openAssignInstructors() {
   assignInstructorsDialog.value = true
 }
 
-async function doAssignStudents() {
-  assigning.value = true
-  try {
-    await assignStudents(team.value.id, selectedStudents.value)
-    assignStudentsDialog.value = false
-    await loadTeam()
-  } catch {
-    notify('Failed to assign students.', 'error')
-  } finally {
-    assigning.value = false
-  }
+function reviewAssignInstructors() {
+  assignInstructorsDialog.value = false
+  confirmInstructorsDialog.value = true
+}
+
+function backToSelectInstructors() {
+  confirmInstructorsDialog.value = false
+  assignInstructorsDialog.value = true
 }
 
 async function doAssignInstructors() {
   assigning.value = true
   try {
     await assignInstructors(team.value.id, selectedInstructors.value)
-    assignInstructorsDialog.value = false
+    confirmInstructorsDialog.value = false
+    notify('Instructors assigned successfully.')
     await loadTeam()
-  } catch {
-    notify('Failed to assign instructors.', 'error')
+  } catch (err) {
+    notify(err.response?.data?.message || 'Failed to assign instructors.', 'error')
   } finally {
     assigning.value = false
   }
 }
 
-async function removeStudent(studentId) {
+function promptRemoveStudent(student) {
+  studentToRemove.value = student
+  removeStudentDialog.value = true
+}
+
+async function doRemoveStudent() {
+  removing.value = true
   try {
-    await removeStudentFromTeam(team.value.id, studentId)
+    await removeStudentFromTeam(team.value.id, studentToRemove.value.id)
+    removeStudentDialog.value = false
+    notify(`${studentToRemove.value.firstName} ${studentToRemove.value.lastName} removed from team.`)
     await loadTeam()
-  } catch {
-    notify('Failed to remove student.', 'error')
+  } catch (err) {
+    notify(err.response?.data?.message || 'Failed to remove student.', 'error')
+  } finally {
+    removing.value = false
   }
 }
 
-async function removeInstructor(instructorId) {
+function promptRemoveInstructor(instructor) {
+  instructorToRemove.value = instructor
+  removeInstructorDialog.value = true
+}
+
+async function doRemoveInstructor() {
+  removing.value = true
   try {
-    await removeInstructorFromTeam(team.value.id, instructorId)
+    await removeInstructorFromTeam(team.value.id, instructorToRemove.value.id)
+    removeInstructorDialog.value = false
+    notify(`${instructorToRemove.value.firstName} ${instructorToRemove.value.lastName} removed from team.`)
     await loadTeam()
-  } catch {
-    notify('Failed to remove instructor.', 'error')
+  } catch (err) {
+    notify(err.response?.data?.message || 'Failed to remove instructor.', 'error')
+  } finally {
+    removing.value = false
   }
 }
 
@@ -339,7 +502,8 @@ async function doDeleteTeam() {
   try {
     await deleteTeam(team.value.id)
     router.push('/admin/teams')
-  } finally {
+  } catch (err) {
+    notify(err.response?.data?.message || 'Failed to delete team.', 'error')
     deleting.value = false
   }
 }

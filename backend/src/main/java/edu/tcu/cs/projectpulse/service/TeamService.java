@@ -122,8 +122,11 @@ public class TeamService {
     public void removeStudentFromTeam(Long teamId, Long studentId) {
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
-        String teamName = student.getTeam() != null ? student.getTeam().getName() : "";
-        String sectionName = student.getTeam() != null && student.getTeam().getSection() != null
+        if (student.getTeam() == null || !student.getTeam().getId().equals(teamId)) {
+            throw new IllegalStateException("Student is not assigned to this team.");
+        }
+        String teamName = student.getTeam().getName();
+        String sectionName = student.getTeam().getSection() != null
                 ? student.getTeam().getSection().getName() : "";
         student.setTeam(null);
         userRepository.save(student);
