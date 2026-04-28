@@ -26,6 +26,7 @@ const routes = [
       { path: 'rubrics/new', component: () => import('@/views/admin/RubricFormView.vue') },
       { path: 'rubrics/:id/edit', component: () => import('@/views/admin/RubricFormView.vue') },
       { path: 'invite/students', component: () => import('@/views/admin/InviteStudents.vue') },
+      { path: 'invite/instructors', component: () => import('@/views/admin/InviteInstructors.vue') },
     ],
   },
 
