@@ -84,7 +84,7 @@
     </v-alert>
 
     <!-- Activities table -->
-    <v-card v-if="selectedWeekId">
+    <v-card v-if="selectedWeekId" style="overflow-x:auto">
       <v-data-table
         :headers="headers"
         :items="flatActivities"

@@ -12,11 +12,13 @@ api.interceptors.request.use(config => {
   return config
 })
 
-// Handle 401 globally
+// Handle 401 globally — but not on the login endpoint itself,
+// so LoginView can display its own error message without a page reload.
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url === '/auth/login'
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/'

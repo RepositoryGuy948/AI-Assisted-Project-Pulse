@@ -23,7 +23,7 @@
         <v-card-title>Overall Grade</v-card-title>
         <v-card-text>
           <div class="text-h2 font-weight-bold text-primary">
-            {{ report.grade?.toFixed(1) }}<span class="text-h5 text-medium-emphasis"> / 60</span>
+            {{ report.grade?.toFixed(1) }}<span class="text-h5 text-medium-emphasis"> / {{ maxScore }}</span>
           </div>
           <div class="text-body-2 text-medium-emphasis">Based on {{ report.evaluationCount }} evaluations</div>
         </v-card-text>
@@ -71,26 +71,37 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { getMe, getTeam, getActiveWeeks, getStudentPeerReport } from '@/api'
+import { getMe, getTeam, getActiveWeeks, getSection, getRubric, getStudentPeerReport } from '@/api'
+import { weekLabel } from '@/utils/weekLabel'
 
 const auth = useAuthStore()
 const weeks = ref([])
 const selectedWeekId = ref(null)
 const report = ref(null)
+const maxScore = ref(0)
 
 onMounted(async () => {
   const me = await getMe()
   if (!me.data.teamId) return
   const teamRes = await getTeam(me.data.teamId)
-  const weekRes = await getActiveWeeks(teamRes.data.sectionId)
-  const now = new Date()
+  const sectionId = teamRes.data.sectionId
+
+  const [weekRes, sectionRes] = await Promise.all([
+    getActiveWeeks(sectionId),
+    getSection(sectionId),
+  ])
+
+  if (sectionRes.data.rubricId) {
+    const rubricRes = await getRubric(sectionRes.data.rubricId)
+    maxScore.value = (rubricRes.data.criteria ?? []).reduce((sum, c) => sum + (c.maxScore ?? 0), 0)
+  }
+
   weeks.value = weekRes.data
-    .filter(w => w.active && new Date(w.endDate) < now)
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
     .map(w => ({
       id: w.id,
-      label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      label: weekLabel(w),
     }))
-    .reverse()
   if (weeks.value.length > 0) {
     selectedWeekId.value = weeks.value[0].id
     await loadReport()
@@ -99,7 +110,7 @@ onMounted(async () => {
 
 async function loadReport() {
   if (!selectedWeekId.value) return
-  const res = await getStudentPeerReport(auth.user.id, selectedWeekId.value)
+  const res = await getStudentPeerReport(auth.user?.id, selectedWeekId.value)
   report.value = res.data
 }
 </script>

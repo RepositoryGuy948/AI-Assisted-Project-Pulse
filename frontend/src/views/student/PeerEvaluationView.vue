@@ -33,7 +33,7 @@
         <v-card-title class="d-flex align-center">
           <v-icon class="mr-2">mdi-account</v-icon>
           {{ teammate.firstName }} {{ teammate.lastName }}
-          <v-chip v-if="teammate.id === auth.user.id" size="small" class="ml-2" color="secondary">You</v-chip>
+          <v-chip v-if="teammate.id === auth.user?.id" size="small" class="ml-2" color="secondary">You</v-chip>
           <v-chip v-if="submittedFor.includes(teammate.id)" size="small" class="ml-2" color="success">Submitted</v-chip>
         </v-card-title>
         <v-card-text>
@@ -97,7 +97,7 @@
           >
             <v-card-title class="text-body-1">
               {{ teammate.firstName }} {{ teammate.lastName }}
-              <v-chip v-if="teammate.id === auth.user.id" size="x-small" class="ml-2">You</v-chip>
+              <v-chip v-if="teammate.id === auth.user?.id" size="x-small" class="ml-2">You</v-chip>
             </v-card-title>
             <v-card-text class="pb-2">
               <v-row dense v-for="c in criteria" :key="c.id">
@@ -147,50 +147,59 @@ const teamId = ref(null)
 const windowState = ref('no-weeks') // 'no-weeks' | 'open' | 'closed'
 
 onMounted(async () => {
-  const me = await getMe()
-  if (!me.data.teamId) return
-  teamId.value = me.data.teamId
+  try {
+    const me = await getMe()
+    if (!me.data.teamId) return
+    teamId.value = me.data.teamId
 
-  const [teamRes] = await Promise.all([getTeam(me.data.teamId)])
-  const team = teamRes.data
+    const teamRes = await getTeam(me.data.teamId)
+    const team = teamRes.data
 
-  const weekRes = await getActiveWeeks(team.sectionId)
-  const now = new Date()
-  const allActive = weekRes.data.filter(w => w.active)
-  const pastWeeks = allActive.filter(w => new Date(w.endDate) < now)
-  const currentWeek = allActive.find(w => new Date(w.startDate) <= now && new Date(w.endDate) >= now)
+    const weekRes = await getActiveWeeks(team.sectionId)
+    const now = new Date()
+    const allActive = weekRes.data.filter(w => w.active)
+    const pastWeeks = allActive.filter(w => new Date(w.endDate) < now)
+    const currentWeek = allActive.find(w => new Date(w.startDate) <= now && new Date(w.endDate) >= now)
 
-  if (pastWeeks.length === 0) {
-    windowState.value = 'no-weeks'
-    return
+    if (pastWeeks.length === 0) {
+      windowState.value = 'no-weeks'
+      return
+    }
+
+    // Submission window is only open while a current week is running
+    if (!currentWeek) {
+      windowState.value = 'closed'
+      return
+    }
+
+    const previousWeek = pastWeeks[pastWeeks.length - 1]
+
+    // Load section/rubric before showing the form
+    const sectionRes = await getSection(team.sectionId)
+    if (sectionRes.data.rubricId) {
+      const rubricRes = await getRubric(sectionRes.data.rubricId)
+      criteria.value = rubricRes.data.criteria
+    }
+
+    const subRes = await getSubmittedEvaluations(auth.user?.id, previousWeek.id)
+    submittedFor.value = subRes.data.map(e => e.evaluateeId)
+
+    const filteredTeammates = team.students.filter(s => s.id !== auth.user?.id)
+
+    // Initialize evaluations for every teammate BEFORE making them visible
+    filteredTeammates.forEach(tm => {
+      const scores = {}
+      criteria.value.forEach(c => { scores[c.id] = 1 })
+      evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
+    })
+
+    // Only now expose data to the template — evaluations is fully ready
+    activeWeek.value = previousWeek
+    teammates.value = filteredTeammates
+    windowState.value = 'open'
+  } catch (e) {
+    error.value = e.response?.data?.message || 'Failed to load evaluation data.'
   }
-
-  // Submission window is only open while a current week is running
-  if (!currentWeek) {
-    windowState.value = 'closed'
-    return
-  }
-
-  const previousWeek = pastWeeks[pastWeeks.length - 1]
-  activeWeek.value = previousWeek
-  windowState.value = 'open'
-
-  teammates.value = team.students
-
-  const sectionRes = await getSection(team.sectionId)
-  if (sectionRes.data.rubricId) {
-    const rubricRes = await getRubric(sectionRes.data.rubricId)
-    criteria.value = rubricRes.data.criteria
-  }
-
-  const subRes = await getSubmittedEvaluations(auth.user.id, previousWeek.id)
-  submittedFor.value = subRes.data.map(e => e.evaluateeId)
-
-  teammates.value.forEach(tm => {
-    const scores = {}
-    criteria.value.forEach(c => { scores[c.id] = 1 })
-    evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
-  })
 })
 
 function openReview() {
@@ -206,7 +215,7 @@ async function submitAll() {
     const me = await getMe()
     for (const teammate of teammates.value) {
       const evalData = evaluations[teammate.id]
-      await submitPeerEvaluation(auth.user.id, {
+      await submitPeerEvaluation(auth.user?.id, {
         evaluateeId: teammate.id,
         weekId: activeWeek.value.id,
         teamId: me.data.teamId,

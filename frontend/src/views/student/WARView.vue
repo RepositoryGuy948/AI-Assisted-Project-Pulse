@@ -223,6 +223,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMe, getTeam, getActiveWeeks, getWAR, addActivity, updateActivity, deleteActivity } from '@/api'
+import { weekLabel } from '@/utils/weekLabel'
 
 const auth = useAuthStore()
 
@@ -304,7 +305,7 @@ async function loadWeeks(teamId) {
         id: w.id,
         startDate: w.startDate,
         active: w.active,
-        label: formatWeekLabel(w),
+        label: weekLabel(w) + (w.active ? '' : ' (inactive)'),
       }))
       .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
     if (weeks.value.length > 0) {
@@ -398,14 +399,6 @@ function blankForm() {
   return { category: null, description: '', plannedHours: null, actualHours: null, status: null }
 }
 
-function formatWeekLabel(w) {
-  const start = new Date(w.startDate)
-  const end   = new Date(start)
-  end.setDate(end.getDate() + 6)
-  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const inactive = !w.active ? ' (inactive)' : ''
-  return `${fmt(start)} – ${fmt(end)}${inactive}`
-}
 
 function categoryLabel(val) {
   return categoryItems.find(c => c.value === val)?.label ?? val ?? ''

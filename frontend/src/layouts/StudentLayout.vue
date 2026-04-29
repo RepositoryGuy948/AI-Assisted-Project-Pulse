@@ -1,13 +1,14 @@
 <template>
   <v-layout>
-    <v-navigation-drawer v-model="drawer" :rail="rail" permanent :width="300">
+    <v-navigation-drawer v-model="drawer" :rail="rail" permanent width="264">
       <template #prepend>
         <div class="nav-header student-gradient">
           <div class="nav-logo-box">
-            <v-icon color="white" size="20">mdi-pulse</v-icon>
+            <v-icon color="white" size="22">mdi-pulse</v-icon>
           </div>
           <template v-if="!rail">
             <div class="nav-brand-text">
+              <img src="/tcu-logo.png" alt="TCU" class="nav-tcu-logo mb-1" />
               <div class="nav-brand-name">Project Pulse</div>
               <div class="nav-brand-role">Student Portal</div>
             </div>
@@ -31,13 +32,13 @@
         </div>
       </template>
 
-      <v-list density="compact" nav class="mt-2 px-2">
-        <v-list-item prepend-icon="mdi-view-dashboard"  title="Dashboard"        to="/student/dashboard"       rounded="lg" active-color="info" />
-        <v-list-item prepend-icon="mdi-clipboard-text"  title="My WAR"           to="/student/war"             rounded="lg" active-color="info" />
-        <v-list-item prepend-icon="mdi-account-group"   title="Team WAR Report"  to="/student/team-war-report" rounded="lg" active-color="info" />
-        <v-list-item prepend-icon="mdi-star-circle"     title="Peer Evaluation"  to="/student/peer-evaluation" rounded="lg" active-color="info" />
-        <v-list-item prepend-icon="mdi-chart-bar"       title="My Report"        to="/student/my-report"       rounded="lg" active-color="info" />
-        <v-list-item prepend-icon="mdi-account"         title="My Account"       to="/student/account"         rounded="lg" active-color="info" />
+      <v-list density="comfortable" nav class="mt-2 px-2">
+        <v-list-item prepend-icon="mdi-view-dashboard" title="Dashboard"       to="/student/dashboard"       rounded="lg" active-color="primary" class="mb-1" />
+        <v-list-item prepend-icon="mdi-clipboard-text" title="My WAR"          to="/student/war"             rounded="lg" active-color="primary" class="mb-1" />
+        <v-list-item prepend-icon="mdi-account-group"  title="Team WAR Report" to="/student/team-war-report" rounded="lg" active-color="primary" class="mb-1" />
+        <v-list-item prepend-icon="mdi-star-circle"    title="Peer Evaluation" to="/student/peer-evaluation" rounded="lg" active-color="primary" class="mb-1" />
+        <v-list-item prepend-icon="mdi-chart-bar"      title="My Report"       to="/student/my-report"       rounded="lg" active-color="primary" class="mb-1" />
+        <v-list-item prepend-icon="mdi-account"        title="My Account"      to="/student/account"         rounded="lg" active-color="primary" class="mb-1" />
       </v-list>
 
       <template #append>
@@ -65,7 +66,9 @@
 
     <v-main>
       <v-container fluid class="pa-6">
-        <router-view />
+        <div class="page-content">
+          <router-view />
+        </div>
       </v-container>
     </v-main>
   </v-layout>
@@ -117,7 +120,7 @@ const initials = computed(() => {
 
 function logout() {
   auth.logout()
-  router.replace('/')
+  window.location.href = '/'
 }
 </script>
 
@@ -125,9 +128,9 @@ function logout() {
 .nav-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 12px;
-  min-height: 68px;
+  gap: 12px;
+  padding: 18px 16px;
+  min-height: 76px;
 }
 
 .student-gradient {
@@ -135,9 +138,9 @@ function logout() {
 }
 
 .nav-logo-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
@@ -153,19 +156,41 @@ function logout() {
 .nav-brand-name {
   color: white;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.3;
 }
 
 .nav-brand-role {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.72rem;
-  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 
 :deep(.v-list-item__content .v-list-item-title) {
-  color: #000000;
-  font-size: 16px;
+  color: #1e1b4b;
+  font-size: 0.9rem;
   font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+:deep(.v-list-item__prepend .v-icon) {
+  opacity: 0.7;
+}
+
+:deep(.v-list-item--active .v-list-item__prepend .v-icon) {
+  opacity: 1;
+}
+
+:deep(.v-list-item-subtitle) {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.nav-tcu-logo {
+  height: 14px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
 }
 </style>

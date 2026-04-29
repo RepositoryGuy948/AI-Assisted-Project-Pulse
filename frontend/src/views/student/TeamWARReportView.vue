@@ -19,7 +19,7 @@
       You are not assigned to a team yet.
     </v-alert>
 
-    <v-card v-if="report.length > 0">
+    <v-card v-if="report.length > 0" style="overflow-x:auto">
       <v-card-subtitle class="pt-3 pb-1">
         Students who have NOT submitted:
         <v-chip
@@ -54,6 +54,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getMe, getTeam, getActiveWeeks, getTeamWARReport } from '@/api'
+import { weekLabel } from '@/utils/weekLabel'
 
 const auth = useAuthStore()
 const pageLoading = ref(true)
@@ -102,7 +103,7 @@ onMounted(async () => {
     .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
     .map(w => ({
       id: w.id,
-      label: `Week of ${new Date(w.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      label: weekLabel(w),
     }))
 
   if (weeks.value.length > 0) {

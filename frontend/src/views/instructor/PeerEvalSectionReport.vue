@@ -30,15 +30,17 @@
 
     <v-card v-if="report.length > 0">
       <v-card-subtitle class="pt-3 pb-1">
-        Students with no evaluations received:
-        <v-chip
-          v-for="name in missingStudents"
-          :key="name"
-          size="small"
-          color="warning"
-          class="ml-1"
-        >{{ name }}</v-chip>
-        <span v-if="missingStudents.length === 0" class="text-success ml-1">All students received evaluations</span>
+        <span v-if="missingStudents.length === 0" class="text-success">All students received evaluations for this week.</span>
+        <template v-else>
+          Students with no evaluations received:
+          <v-chip
+            v-for="name in missingStudents"
+            :key="name"
+            size="small"
+            color="warning"
+            class="ml-1"
+          >{{ name }}</v-chip>
+        </template>
       </v-card-subtitle>
       <v-data-table
         :headers="headers"
@@ -127,7 +129,7 @@ const detailDialog = ref(false)
 const selectedStudent = ref(null)
 
 const headers = [
-  { title: 'Student', key: 'studentName' },
+  { title: 'Student', key: 'studentName', sortable: false },
   { title: 'Grade', key: 'grade' },
   { title: 'Evaluations received', key: 'evaluationCount' },
   { title: 'Details', key: 'actions', sortable: false },
