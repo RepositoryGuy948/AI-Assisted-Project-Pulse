@@ -44,7 +44,7 @@
             >
               <template #append>
                 <v-btn icon="mdi-account-minus" variant="text" size="small" color="error"
-                  @click.prevent="promptRemoveStudent(s)" />
+                  @click.stop.prevent="promptRemoveStudent(s)" />
               </template>
             </v-list-item>
             <v-list-item v-if="!team.students?.length">
@@ -70,7 +70,7 @@
             >
               <template #append>
                 <v-btn icon="mdi-account-minus" variant="text" size="small" color="error"
-                  @click="promptRemoveInstructor(i)" />
+                  @click.stop="promptRemoveInstructor(i)" />
               </template>
             </v-list-item>
             <v-list-item v-if="!team.instructors?.length">

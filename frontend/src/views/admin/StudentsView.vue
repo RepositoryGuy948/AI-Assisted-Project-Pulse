@@ -73,6 +73,8 @@ async function fetchStudents() {
       email: filters.value.email || undefined,
     })
     students.value = res.data.sort((a, b) => a.lastName.localeCompare(b.lastName))
+  } catch {
+    snackbar.value = { show: true, message: 'Failed to load students. Check that the backend is running.', color: 'error' }
   } finally {
     loading.value = false
   }

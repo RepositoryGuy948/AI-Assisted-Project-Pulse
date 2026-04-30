@@ -5,21 +5,28 @@
       Evaluate all your teammates for the previous week. All scores are required (1–10).
     </p>
 
+    <!-- Loading -->
+    <div v-if="loading" class="d-flex justify-center my-8">
+      <v-progress-circular indeterminate color="primary" />
+    </div>
+
     <!-- Outside-window states -->
-    <v-alert v-if="!teamId" type="warning" class="mb-4">
-      You must be assigned to a team before you can submit peer evaluations.
-    </v-alert>
+    <template v-else>
+      <v-alert v-if="!teamId" type="warning" class="mb-4">
+        You must be assigned to a team before you can submit peer evaluations.
+      </v-alert>
 
-    <v-alert v-else-if="windowState === 'no-weeks'" type="info" class="mb-4">
-      No completed weeks available yet. Peer evaluations open after a week ends.
-    </v-alert>
+      <v-alert v-else-if="windowState === 'no-weeks'" type="info" class="mb-4">
+        No completed weeks available yet. Peer evaluations open after a week ends.
+      </v-alert>
 
-    <v-alert v-else-if="windowState === 'closed'" type="warning" class="mb-4">
-      The submission window is closed. You can only submit peer evaluations for the most recently
-      completed week, and only before the next week ends.
-    </v-alert>
+      <v-alert v-else-if="windowState === 'closed'" type="warning" class="mb-4">
+        The submission window is closed. You can only submit peer evaluations for the most recently
+        completed week, and only before the next week ends.
+      </v-alert>
+    </template>
 
-    <div v-if="activeWeek && windowState === 'open'">
+    <div v-if="!loading && activeWeek && windowState === 'open'">
       <v-chip color="primary" class="mb-4">
         Evaluating week of {{ formatDate(activeWeek.startDate) }}
       </v-chip>
@@ -145,52 +152,62 @@ const error = ref('')
 const success = ref(false)
 const teamId = ref(null)
 const windowState = ref('no-weeks') // 'no-weeks' | 'open' | 'closed'
+const loading = ref(true)
 
 onMounted(async () => {
-  const me = await getMe()
-  if (!me.data.teamId) return
-  teamId.value = me.data.teamId
+  try {
+    const me = await getMe()
+    if (!me.data.teamId) {
+      loading.value = false
+      return
+    }
+    teamId.value = me.data.teamId
 
-  const [teamRes] = await Promise.all([getTeam(me.data.teamId)])
-  const team = teamRes.data
+    const [teamRes] = await Promise.all([getTeam(me.data.teamId)])
+    const team = teamRes.data
 
-  const weekRes = await getActiveWeeks(team.sectionId)
-  const now = new Date()
-  const allActive = weekRes.data.filter(w => w.active)
-  const pastWeeks = allActive.filter(w => new Date(w.endDate) < now)
-  const currentWeek = allActive.find(w => new Date(w.startDate) <= now && new Date(w.endDate) >= now)
+    const weekRes = await getActiveWeeks(team.sectionId)
+    const now = new Date()
+    const allActive = weekRes.data.filter(w => w.active)
+    const pastWeeks = allActive.filter(w => new Date(w.endDate) < now)
+    const currentWeek = allActive.find(w => new Date(w.startDate) <= now && new Date(w.endDate) >= now)
 
-  if (pastWeeks.length === 0) {
-    windowState.value = 'no-weeks'
-    return
+    if (pastWeeks.length === 0) {
+      windowState.value = 'no-weeks'
+      loading.value = false
+      return
+    }
+
+    // Submission window is only open while a current week is running
+    if (!currentWeek) {
+      windowState.value = 'closed'
+      loading.value = false
+      return
+    }
+
+    const previousWeek = pastWeeks[pastWeeks.length - 1]
+    activeWeek.value = previousWeek
+    windowState.value = 'open'
+
+    teammates.value = team.students
+
+    const sectionRes = await getSection(team.sectionId)
+    if (sectionRes.data.rubricId) {
+      const rubricRes = await getRubric(sectionRes.data.rubricId)
+      criteria.value = rubricRes.data.criteria
+    }
+
+    const subRes = await getSubmittedEvaluations(auth.user.id, previousWeek.id)
+    submittedFor.value = subRes.data.map(e => e.evaluateeId)
+
+    teammates.value.forEach(tm => {
+      const scores = {}
+      criteria.value.forEach(c => { scores[c.id] = 1 })
+      evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
+    })
+  } finally {
+    loading.value = false
   }
-
-  // Submission window is only open while a current week is running
-  if (!currentWeek) {
-    windowState.value = 'closed'
-    return
-  }
-
-  const previousWeek = pastWeeks[pastWeeks.length - 1]
-  activeWeek.value = previousWeek
-  windowState.value = 'open'
-
-  teammates.value = team.students
-
-  const sectionRes = await getSection(team.sectionId)
-  if (sectionRes.data.rubricId) {
-    const rubricRes = await getRubric(sectionRes.data.rubricId)
-    criteria.value = rubricRes.data.criteria
-  }
-
-  const subRes = await getSubmittedEvaluations(auth.user.id, previousWeek.id)
-  submittedFor.value = subRes.data.map(e => e.evaluateeId)
-
-  teammates.value.forEach(tm => {
-    const scores = {}
-    criteria.value.forEach(c => { scores[c.id] = 1 })
-    evaluations[tm.id] = { scores, publicComment: '', privateComment: '' }
-  })
 })
 
 function openReview() {
