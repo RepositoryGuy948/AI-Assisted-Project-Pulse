@@ -5,21 +5,28 @@
       Evaluate all your teammates for the previous week. All scores are required (1–10).
     </p>
 
+    <!-- Loading -->
+    <div v-if="loading" class="d-flex justify-center my-8">
+      <v-progress-circular indeterminate color="primary" />
+    </div>
+
     <!-- Outside-window states -->
-    <v-alert v-if="!teamId" type="warning" class="mb-4">
-      You must be assigned to a team before you can submit peer evaluations.
-    </v-alert>
+    <template v-else>
+      <v-alert v-if="!teamId" type="warning" class="mb-4">
+        You must be assigned to a team before you can submit peer evaluations.
+      </v-alert>
 
-    <v-alert v-else-if="windowState === 'no-weeks'" type="info" class="mb-4">
-      No completed weeks available yet. Peer evaluations open after a week ends.
-    </v-alert>
+      <v-alert v-else-if="windowState === 'no-weeks'" type="info" class="mb-4">
+        No completed weeks available yet. Peer evaluations open after a week ends.
+      </v-alert>
 
-    <v-alert v-else-if="windowState === 'closed'" type="warning" class="mb-4">
-      The submission window is closed. You can only submit peer evaluations for the most recently
-      completed week, and only before the next week ends.
-    </v-alert>
+      <v-alert v-else-if="windowState === 'closed'" type="warning" class="mb-4">
+        The submission window is closed. You can only submit peer evaluations for the most recently
+        completed week, and only before the next week ends.
+      </v-alert>
+    </template>
 
-    <div v-if="activeWeek && windowState === 'open'">
+    <div v-if="!loading && activeWeek && windowState === 'open'">
       <v-chip color="primary" class="mb-4">
         Evaluating week of {{ formatDate(activeWeek.startDate) }}
       </v-chip>
@@ -145,11 +152,15 @@ const error = ref('')
 const success = ref(false)
 const teamId = ref(null)
 const windowState = ref('no-weeks') // 'no-weeks' | 'open' | 'closed'
+const loading = ref(true)
 
 onMounted(async () => {
   try {
     const me = await getMe()
-    if (!me.data.teamId) return
+    if (!me.data.teamId) {
+      loading.value = false
+      return
+    }
     teamId.value = me.data.teamId
 
     const teamRes = await getTeam(me.data.teamId)
@@ -163,12 +174,14 @@ onMounted(async () => {
 
     if (pastWeeks.length === 0) {
       windowState.value = 'no-weeks'
+      loading.value = false
       return
     }
 
     // Submission window is only open while a current week is running
     if (!currentWeek) {
       windowState.value = 'closed'
+      loading.value = false
       return
     }
 
@@ -199,6 +212,8 @@ onMounted(async () => {
     windowState.value = 'open'
   } catch (e) {
     error.value = e.response?.data?.message || 'Failed to load evaluation data.'
+  } finally {
+    loading.value = false
   }
 })
 

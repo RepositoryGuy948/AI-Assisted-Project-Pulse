@@ -36,6 +36,9 @@ public class DataInitializer implements CommandLineRunner {
         User alex  = ensureUser("a.davis@abc.edu",   "123456", "Alex",  "Davis",   User.Role.STUDENT);
         User maria = ensureUser("m.lee@abc.edu",     "123456", "Maria", "Lee",     User.Role.STUDENT);
         User kevin = ensureUser("k.nguyen@abc.edu",  "123456", "Kevin", "Nguyen",  User.Role.STUDENT);
+        ensureUser("m.garcia@abc.edu", "123456", "Maria",  "Garcia", User.Role.STUDENT);
+        ensureUser("t.nguyen@abc.edu", "123456", "Tommy",  "Nguyen", User.Role.STUDENT);
+        ensureUser("a.patel@abc.edu",  "123456", "Anika",  "Patel",  User.Role.STUDENT);
 
         // ── Section ────────────────────────────────────────────────────────────────
         Section section = ensureSection("2024-2025",
@@ -95,11 +98,17 @@ public class DataInitializer implements CommandLineRunner {
 
     private User ensureUser(String email, String rawPassword, String firstName, String lastName, User.Role role) {
         return userRepository.findByEmail(email).map(existing -> {
+            boolean changed = false;
             if (!existing.isEnabled()) {
                 existing.setEnabled(true);
-                userRepository.save(existing);
-                log.info("Re-enabled seed user: {}", email);
+                changed = true;
             }
+            if (!passwordEncoder.matches(rawPassword, existing.getPassword())) {
+                existing.setPassword(passwordEncoder.encode(rawPassword));
+                changed = true;
+                log.info("Reset password for seed user: {}", email);
+            }
+            if (changed) userRepository.save(existing);
             return existing;
         }).orElseGet(() -> {
             User user = User.builder()
