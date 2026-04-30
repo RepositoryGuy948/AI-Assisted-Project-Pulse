@@ -9,7 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 
 @Component
 @RequiredArgsConstructor
@@ -46,10 +48,17 @@ public class DataInitializer implements CommandLineRunner {
                 LocalDate.of(2025, 5, 15));
 
         // ── Active Weeks ───────────────────────────────────────────────────────────
+        // Historical weeks for existing WAR seed data
         ActiveWeek week1 = ensureActiveWeek(section,
                 LocalDate.of(2025, 1, 13), LocalDate.of(2025, 1, 19));
         ActiveWeek week2 = ensureActiveWeek(section,
                 LocalDate.of(2025, 1, 20), LocalDate.of(2025, 1, 26));
+
+        // Current and previous week (relative to today) so peer eval window is always open
+        LocalDate thisMonday = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate lastMonday = thisMonday.minusWeeks(1);
+        ActiveWeek prevWeek    = ensureActiveWeek(section, lastMonday,        lastMonday.plusDays(6));
+        ActiveWeek currentWeek = ensureActiveWeek(section, thisMonday,        thisMonday.plusDays(6));
 
         // ── Teams ──────────────────────────────────────────────────────────────────
         Team teamAlpha = ensureTeam("Team Alpha", section,
@@ -91,6 +100,28 @@ public class DataInitializer implements CommandLineRunner {
         ensureWar(kevin, week2, new ActivitySeed[]{
             new ActivitySeed(Activity.Category.TESTING,       "E2E tests for barcode scanner flow",        4.0, 4.0, Activity.ActivityStatus.DONE),
             new ActivitySeed(Activity.Category.DEPLOYMENT,    "Deployed staging build to TestFlight",      1.0, 1.5, Activity.ActivityStatus.DONE)
+        });
+
+        // WARs for the current rolling previous week (keeps peer eval window open)
+        ensureWar(john, prevWeek, new ActivitySeed[]{
+            new ActivitySeed(Activity.Category.DEVELOPMENT,   "Integrated notification service",           3.0, 3.5, Activity.ActivityStatus.DONE),
+            new ActivitySeed(Activity.Category.TESTING,       "Regression tests for auth module",          2.0, 2.0, Activity.ActivityStatus.DONE)
+        });
+        ensureWar(sarah, prevWeek, new ActivitySeed[]{
+            new ActivitySeed(Activity.Category.DOCUMENTATION, "Updated API docs with new endpoints",       2.0, 2.5, Activity.ActivityStatus.DONE),
+            new ActivitySeed(Activity.Category.PLANNING,      "Sprint retrospective and next sprint plan", 1.5, 1.5, Activity.ActivityStatus.DONE)
+        });
+        ensureWar(alex, prevWeek, new ActivitySeed[]{
+            new ActivitySeed(Activity.Category.DEVELOPMENT,   "Refactored search component for reuse",     4.0, 5.0, Activity.ActivityStatus.DONE),
+            new ActivitySeed(Activity.Category.BUGFIX,        "Fixed date formatting bug in event cards",  1.0, 1.0, Activity.ActivityStatus.DONE)
+        });
+        ensureWar(maria, prevWeek, new ActivitySeed[]{
+            new ActivitySeed(Activity.Category.DEVELOPMENT,   "Built item detail screen in React Native",  4.0, 4.5, Activity.ActivityStatus.DONE),
+            new ActivitySeed(Activity.Category.DESIGN,        "Polished onboarding flow UI",               2.0, 2.0, Activity.ActivityStatus.DONE)
+        });
+        ensureWar(kevin, prevWeek, new ActivitySeed[]{
+            new ActivitySeed(Activity.Category.TESTING,       "Added unit tests for inventory service",    3.0, 3.0, Activity.ActivityStatus.DONE),
+            new ActivitySeed(Activity.Category.DEPLOYMENT,    "Set up CI pipeline for automated builds",   2.0, 2.5, Activity.ActivityStatus.DONE)
         });
     }
 
