@@ -96,7 +96,9 @@ onMounted(async () => {
     maxScore.value = (rubricRes.data.criteria ?? []).reduce((sum, c) => sum + (c.maxScore ?? 0), 0)
   }
 
+  const now = new Date()
   weeks.value = weekRes.data
+    .filter(w => new Date(w.endDate) < now)
     .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
     .map(w => ({
       id: w.id,
