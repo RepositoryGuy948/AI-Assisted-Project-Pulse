@@ -23,6 +23,7 @@ public class DataInitializer implements CommandLineRunner {
     private final TeamRepository teamRepository;
     private final ActiveWeekRepository activeWeekRepository;
     private final WeeklyActivityReportRepository warRepository;
+    private final RubricRepository rubricRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -42,10 +43,24 @@ public class DataInitializer implements CommandLineRunner {
         ensureUser("t.nguyen@abc.edu", "123456", "Tommy",  "Nguyen", User.Role.STUDENT);
         ensureUser("a.patel@abc.edu",  "123456", "Anika",  "Patel",  User.Role.STUDENT);
 
+        // ── Rubric ─────────────────────────────────────────────────────────────────
+        Rubric rubric = ensureRubric("Standard Peer Evaluation Rubric",
+                new String[][]{
+                    {"Effort",          "Quality and quantity of work contributed this week",     "10"},
+                    {"Teamwork",        "Collaboration, communication, and support of teammates", "10"},
+                    {"Technical Skills","Technical contributions and problem-solving ability",    "10"},
+                    {"Reliability",     "Meeting commitments, deadlines, and responsibilities",   "10"}
+                });
+
         // ── Section ────────────────────────────────────────────────────────────────
         Section section = ensureSection("2024-2025",
                 LocalDate.of(2024, 8, 26),
                 LocalDate.of(2025, 5, 15));
+
+        if (section.getRubric() == null) {
+            section.setRubric(rubric);
+            sectionRepository.save(section);
+        }
 
         // ── Active Weeks ───────────────────────────────────────────────────────────
         // Historical weeks for existing WAR seed data
@@ -237,6 +252,25 @@ public class DataInitializer implements CommandLineRunner {
         }
         warRepository.save(war);
         log.info("Created seed WAR for {} / week starting {}", student.getEmail(), week.getStartDate());
+    }
+
+    private Rubric ensureRubric(String name, String[][] criteriaData) {
+        return rubricRepository.findByName(name).orElseGet(() -> {
+            Rubric rubric = Rubric.builder().name(name).build();
+            rubric = rubricRepository.save(rubric);
+            for (String[] c : criteriaData) {
+                Criterion criterion = Criterion.builder()
+                        .name(c[0])
+                        .description(c[1])
+                        .maxScore(Double.parseDouble(c[2]))
+                        .rubric(rubric)
+                        .build();
+                rubric.getCriteria().add(criterion);
+            }
+            rubricRepository.save(rubric);
+            log.info("Created seed rubric: {}", name);
+            return rubric;
+        });
     }
 
     private record ActivitySeed(
